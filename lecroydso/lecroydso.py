@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# $Header: //SoftwareQA/Test/IR/Nightly_Automation/MergeStartXreplay/lecroy_dso.py#6 $
+# $Header: $
 #-----------------------------------------------------------------------------
 # Summary:		Implementation of LeCroyDSO class
 # Authors:		Ashok Bruno
@@ -7,6 +7,8 @@
 # Copyright 2021-2024 Teledyne LeCroy Corporation. All Rights Reserved.
 #-----------------------------------------------------------------------------
 
+from lecroydso.errors import ParametersError
+from typing import Any
 from lecroydso.dsoconnection import DSOConnection
 import time
 import re
@@ -19,23 +21,18 @@ verbose = 2     #set 1 (or 2)
 #------------------------------------------------------------------------------------
 # Class: LeCroyDSO
 class LeCroyDSO:
-    """[Communication interface to a LeCroy Oscilloscope]
+    """Communication interface to a LeCroy Oscilloscope
+        
+    Args:
+        myConnection (DSOConnection): A connection interface to the oscilloscope like ActiveDSO, LeCroyVISA
+        log (bool, optional): creates a log output. Defaults to False.
     """
 
-    def __init__(self, myConnection: DSOConnection, log:bool=False):
-        """[summary]
-
-        Args:
-            myConnection (DSOConnection): [A connection interface to the oscilloscope like ActiveDSO, LeCroyVISA]
-            log (bool, optional): [creates a log output]. Defaults to False.
-        """
-
+    def __init__(self, myConnection:DSOConnection, log:bool=False):
         self._conn = myConnection
         self.connected = True
         self.verbose = verbose
-        self.stopOnFailed = False
         self.logger = None
-        self._conn.queryResponseMaxLength = 1000000
         if self.connected == True:
             if log:
                 self.__createLogger(self._conn.connectionString)
@@ -43,44 +40,44 @@ class LeCroyDSO:
             self.__init_vbs()
             
             #determine what model this scope is
-            (self.manufacturer, self.model, self.serialNumber, self.firmwareVersion) = self.send_query('*IDN?').split(',')
+            (self.manufacturer, self.model, self.serial_number, self.firmware_version) = self.send_query('*IDN?').split(',')
             
-            self.availableChannels = []
-            self.availableDigitalChannels = []
-            self.availableFunctions = []
-            self.availableParameters = []
-            self.availableMemories = []
-            self.availableZooms = []
+            self.available_channels = []
+            self.available_digital_channels = []
+            self.available_functions = []
+            self.available_parameters = []
+            self.available_memories = []
+            self.available_zooms = []
 
             try:
                 self.execsAll = self.send_vbs_query('app.ExecsNameAll').split(',')
                 # parse this to get numChannels, numFunctions, numMemories, numParameters
                 for exec in self.execsAll:
                     if exec.startswith('C'):
-                        self.availableChannels.append(exec)
+                        self.available_channels.append(exec)
                     elif exec.startswith('D'):
-                        self.availableDigitalChannels.append(exec)
+                        self.available_digital_channels.append(exec)
                     elif exec.startswith('F'):
-                        self.availableFunctions.append(exec)
+                        self.available_functions.append(exec)
                     elif exec.startswith('P'):
-                        self.availableParameters.append(exec)
+                        self.available_parameters.append(exec)
                     elif exec.startswith('M'):
-                        self.availableMemories.append(exec)
+                        self.available_memories.append(exec)
                     elif exec.startswith('Z1'):
-                        self.availableZooms.append(exec)
+                        self.available_zooms.append(exec)
             except ValueError:
                 # some default values if unable to read the cvar
-                self.availableChannels = ['C1', 'C2', 'C3', 'C4']
-                self.availableDigitalChannels = ['D1', 'D2', 'D3', 'D4']
-                self.availableFunctions = ['F1', 'F2', 'F3', 'F4']
-                self.availableParameters = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6']
-                self.availableMemories = ['M1', 'M2', 'M3', 'M4']
-                self.availableZooms = ['Z1', 'Z2', 'Z3', 'Z4']
+                self.available_channels = ['C1', 'C2', 'C3', 'C4']
+                self.available_digital_channels = ['D1', 'D2', 'D3', 'D4']
+                self.available_functions = ['F1', 'F2', 'F3', 'F4']
+                self.available_parameters = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6']
+                self.available_memories = ['M1', 'M2', 'M3', 'M4']
+                self.available_zooms = ['Z1', 'Z2', 'Z3', 'Z4']
 
-            iNumChannels = len(self.availableChannels)
-            self.bAttenuatorUsed = True
+            iNumChannels = len(self.available_channels)
+            self.is_attenuator_used = True
             if (iNumChannels == 2):
-                self.bAttenuatorUsed = False
+                self.is_attenuator_used = False
             self.get_instrument_max_bandwidth()
 
     def __del__(self):
@@ -88,7 +85,7 @@ class LeCroyDSO:
             self.disconnect_from_dso()
             self.disconnect()
 
-    def __createLogger(self, suffix: str):
+    def __createLogger(self, suffix:str):
         self.logger = logging.getLogger('LeCroyDSO_' + suffix)
         self.logger.setLevel(logging.INFO)
 
@@ -124,6 +121,23 @@ class LeCroyDSO:
         self.send_vbs_command('set memory = app.Memory')
         self.send_vbs_command('set syscon = app.SystemControl')
 
+    def validate_source(self, source:str):
+        """Checks if source is valid
+
+        Args:
+            source (str): source string
+
+        Raises:
+            ParametersError: Raises exception if source is not valid
+        """
+        if source.upper() in self.available_channels or source.upper() in self.available_digital_channels:
+            return
+        raise ParametersError('source not found')
+
+    def validate_parameters_source(self, parameterNumber: str):
+        if parameterNumber not in self.available_parameters:
+            raise ParametersError('parameterNumber not found')
+
     def disconnect(self):
         if self.connected:
             self.connected = False
@@ -132,53 +146,97 @@ class LeCroyDSO:
         self._conn.disconnect()
 
     @property 
-    def numChannels(self):
-        return len(self.availableChannels)
+    def numChannels(self) -> int:
+        """readonly Property for number of channels
+        """
+        return len(self.available_channels)
 
     @property 
-    def numDigitalChannels(self):
-        return len(self.availableDigitalChannels)
+    def numDigitalChannels(self) -> int:
+        """readonly Property for number of Digital Channels
+        """
+        return len(self.available_digital_channels)
 
     @property
-    def numFunctions(self):
-        return len(self.availableFunctions)
+    def numFunctions(self) -> int:
+        """readonly Property for number of Functions F1 to Fn
+        """        
+        return len(self.available_functions)
 
     @property 
-    def numMemories(self):
-        return len(self.availableMemories)
+    def numMemories(self) -> int:
+        """readonly Property for number of Memories M1 to Mn
+        """ 
+        return len(self.available_memories)
     
     @property
-    def numParameters(self):
-        return len(self.availableParameters)
+    def numParameters(self) -> int:
+        """readonly Property for number of Parameters P1 to Pn
+        """
+        return len(self.available_parameters)
 
     @property
-    def numZooms(self):
-        return len(self.availableZooms)
+    def numZooms(self) -> int:
+        """readonly Property for number of Zoom Z1 to Zn
+        """        
+        return len(self.available_zooms)
 
     @property
     def queryResponseMaxLength(self) -> int:
+        """read max length of response string
+        """        
         return self._conn.queryResponseMaxLength
 
     @queryResponseMaxLength.setter
     def queryResponseMaxLen(self, val:int):
+        """set the maximum length of the response string from the instrument
+        """
         self._conn.queryResponseMaxLength = val
 
-    def send_command(self, strCmd: str):
+    def send_command(self, strCmd:str):
+        """Sends the command 
+
+        Args:
+            message (str): command string
+        """
         self._conn.send_command(strCmd)
 
-    def send_vbs_command(self, strCmd: str):
+    def send_vbs_command(self, strCmd:str):
+        """Sends the command as a VBS formatted comamnd
+
+        Args:
+            message (str): command string
+        """
         self._conn.send_vbs_command(strCmd)
 
-    def send_query(self, strQuery: str) -> str:
-        return self._conn.send_query(strQuery)
+    def send_query(self, message:str, query_delay:float=None) -> str:
+        """Send the query and returns the response
 
-    def send_vbs_query(self, strQuery: str) -> str:
-        return self._conn.send_vbs_query(strQuery)
+        Args:
+            message (string): command to send
+            query_delay (float, optional): delay between the command and response. Defaults to None.
+
+        Returns:
+            string: Response from the instrument
+        """
+        return self._conn.send_query(message, query_delay)
+
+    def send_vbs_query(self, message:str, query_delay:float=None) -> str:
+        """Send the query as a VBS formatted string and returns the response
+
+        Args:
+            message (string): command to send
+            query_delay (float, optional): delay between the command and response. Defaults to None.
+
+        Returns:
+            string: Response from the instrument
+        """       
+        return self._conn.send_vbs_query(message, query_delay)
 
     def set_default_state(self):
-        """[Sets the default state of the DSO]
+        """Sets the default state of the DSO
         """
-        self.write_cvar('app.SystemControl.EnableMessageBox', 0)
+        self.send_vbs_command('app.SystemControl.EnableMessageBox = ' + str(0))
         self.send_command('CHDR OFF')
         self.send_query('ALST?')
         self.wait_for_opc()
@@ -189,7 +247,7 @@ class LeCroyDSO:
         self.wait_for_opc()
 
     def restart_app(self):
-        """[Restarts the scope application]
+        """Restarts the scope application
         """
         self.disconnect()
         self.send_vbs_command('app.Restart')
@@ -201,38 +259,36 @@ class LeCroyDSO:
                 break
         self.__init__(self._conn, self.logger)
 
-    def acquire(self, timeout:float=0.1, Force:bool =True) -> int:
-        """[summary]
+    def acquire(self, timeout:float=0.1, force:bool =True) -> bool:
+        """summary
 
         Args:
-            timeout (float, optional): [timeout in seconds for the acquisition to wait]. Defaults to 0.1.
-            Force (bool, optional): [description]. Defaults to True.
+            timeout (float, optional): timeout in seconds for the acquisition to wait. Defaults to 0.1.
+            force (bool, optional): Forces an acquisition to complete. Defaults to True.
 
         Returns:
-            int: [description]
+            bool: True for Triggered, False if not Triggered or unknown state
         """
-        if Force == True:
-            self.send_vbs_command('acq.acquire ' + str(timeout) + ',' + str(Force))
-            self.waitForOpc()
+        if force == True:
+            self.send_vbs_command('acq.acquire ' + str(timeout) + ',' + str(force))
+            self.wait_for_opc()
             return True
         else:
             triggered = self.send_vbs_query('acq.acquire(' + str(timeout) + ')')
-            if triggered == '0' or triggered == '1':
-                return int(triggered)
+            if triggered == '0':
+                return False
+            elif triggered == '1':
+                return True
             else:
-                return 0
+                return False
 
-    #------------------------------------------------------------------------------------
-    def write_cvar(self, path: str, value):
-        self.send_vbs_command(path + '=' + str(value))
+    def get_scope_setup(self, filename:str = None) -> str:
+        """Reads the instrument control state into a string
 
-    #------------------------------------------------------------------------------------
-    def read_cvar(self, path: str):
-        return self.send_vbs_query(path)
-
-    #------------------------------------------------------------------------------------
-    def get_scope_setup(self, filename: str = None) -> str:
-        setup = self._conn.GetPanel()
+        Returns:
+            str: panel file returned as a string, trailing terminator removed
+        """        
+        setup = self._conn.get_panel()
 
         if filename != None:
             setup = setup[0:-8]
@@ -240,49 +296,88 @@ class LeCroyDSO:
                 f.write(setup)
         return setup
 
-    #------------------------------------------------------------------------------------
-    def set_scope_setup(self, setup: str, filename: str = None):
+    def set_scope_setup(self, setup:str, filename:str = None):
+        """Set the instrument control state using a panel string, typically from the method get_panel
+
+        Args:
+            panel (str): description
+
+        Returns:
+            bool: True on success, False on failure
+        """
         if filename == None:
             theSetup = setup
         else:
             with open(filename, 'r') as f:
                 theSetup = f.read() + 'ffffffff'
 
-        return self._conn.SetPanel(theSetup)
+        return self._conn.set_panel(theSetup)
 
-
-    def transfer_file_to_dso(self, remoteDevice: str, remoteFileName: str, localFileName: str) -> bool:
-        """[Transfers a file from the PC to the remote device]
+    def get_waveform(self, source:str) -> bytes:
+        """Get a waveform from the source specified
 
         Args:
-            remoteDevice (str): [The device name on the instrument end, typically CARD, HDD]
-            remoteFileName (str): [The name and path of the destination file on the instrument]
-            localFileName (str): [The name and path of the source file on the PC]
+            source (str): Source string 'C1'
 
         Returns:
-            bool: [True on success, False on failure]
+            bytes: return the waveform as bytes, may need to processed further to make sense of it
+        """
+        self.validate_source(source)
+        self._conn.send_command('%s:WF?', source)
+        time.sleep(0.1)
+
+        # read the first 11 bytes, this gives us the length of the transfer
+        header = self._conn.read_raw(11)
+        if 'WARNING' in str(header):
+            return ''
+
+        # get number of bytes in the response
+        bytes = int(header.decode('utf-8').replace('#9', ''))
+
+        # read the amount of data
+        wf = self._conn.read_raw(bytes)
+        # convert from a bytes array to a string and remove the trailing ffffffff
+        return (wf.strip(bytes('ffffffff')))
+
+    def transfer_file_to_dso(self, remoteDevice:str, remoteFileName:str, localFileName:str) -> bool:
+        """Transfers a file from the PC to the remote device
+
+        Args:
+            remoteDevice (str): The device name on the instrument end, typically CARD, HDD
+            remoteFileName (str): The name and path of the destination file on the instrument
+            localFileName (str): The name and path of the source file on the PC
+
+        Returns:
+            bool: True on success, False on failure
         """
         response = self._conn.transfer_file_to_dso(remoteDevice, remoteFileName, localFileName)
         return response >= 0.0
 
-    def transfer_file_to_pc(self, remoteDevice: str, remoteFileName: str, localFileName: str) -> bool:
-        """[Transfers a file from the remote device to the PC]
+    def transfer_file_to_pc(self, remoteDevice:str, remoteFileName:str, localFileName:str) -> bool:
+        """Transfers a file from the remote device to the PC
 
         Args:
-            remoteDevice (str): [The device name on the instrument end, typically CARD, HDD]
-            remoteFileName (str): [The name and path of the destination file on the instrument]
-            localFileName (str): [The name and path of the source file on the PC]
+            remoteDevice (str): The device name on the instrument end, typically CARD, HDD
+            remoteFileName (str): The name and path of the destination file on the instrument
+            localFileName (str): The name and path of the source file on the PC
 
         Returns:
-            bool: [True on success, False on failure]
+            bool: True on success, False on failure
         """
         response = self._conn.transfer_file_to_pc(remoteDevice, remoteFileName, localFileName)
         return response >= 0.0
 
 
-    #------------------------------------------------------------------------------------
-    def pava(self, channel: str, measurement: str) -> tuple:
+    def pava(self, channel:str, measurement:str) -> tuple:
+        """Sends a PAVA query to the instrument
 
+        Args:
+            channel (str): channel index as a str ('C1')
+            measurement (str): specifies the PAVA measurement 
+
+        Returns:
+            tuple: returns (value, status)
+        """
         result = self.send_query(channel + ':PAVA? ' + measurement).split(',')
         status = result[2]
 
@@ -293,9 +388,8 @@ class LeCroyDSO:
 
         return value, status
 
-    #------------------------------------------------------------------------------------
-    def pava_one_parameter(self, source: str, param: str) -> str:
-        if (source.upper() in self.availableChannels or source.upper() in self.availableDigitalChannels):
+    def pava_one_parameter(self, source:str, param:str) -> str:
+        if (source.upper() in self.available_channels or source.upper() in self.available_digital_channels):
             ret = self.send_query(source.upper() + ':PAVA? ' + param)
             if ret != '':
                 return ret.split(',')[1]
@@ -305,47 +399,44 @@ class LeCroyDSO:
             return None
 
     #------------------------------------------------------------------------------------
-    def set_trigger_source(self, source: str):
-        if (source.upper() in ['EXT', 'LINE'] or source.upper() in self.availableChannels or source.upper() in self.availableDigitalChannels):
-            self.triggerSource = source.upper()
+    def set_trigger_source(self, source:str):
+        if (source.upper() in ['EXT', 'LINE'] or source.upper() in self.available_channels or source.upper() in self.available_digital_channels):
             self.send_vbs_command('acqTrig.source = "' + source.upper() + '"')
-            return True
         else:
-            return False
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def set_trigger_mode(self, mode: str = 'STOPPED'):
+    def set_trigger_mode(self, mode:str = 'STOPPED'):
         if mode.upper() in ['AUTO', 'NORMAL', 'SINGLE', 'STOPPED']:
-            self.triggerMode = mode.upper()
             self.send_vbs_command('acq.triggermode = "' + mode.upper() + '"')
-        self.waitForOpc()
+            self.wait_for_opc()
 
     #------------------------------------------------------------------------------------
     def get_trigger_mode(self) -> str:
-        mode = self.read_cvar('acq.TriggerMode')
+        mode = self.send_vbs_query('acq.TriggerMode')
         return mode.upper()
 
     #------------------------------------------------------------------------------------
-    def set_trigger_coupling(self, channel: str, coupling: str = 'DC') -> bool:
-        if ((channel.upper() in self.availableChannels) and (coupling.upper() in ('DC', 'AC', 'LFREJ', 'HFREJ'))):
+    def set_trigger_coupling(self, channel:str, coupling:str = 'DC') -> bool:
+        if ((channel.upper() in self.available_channels) and (coupling.upper() in ('DC', 'AC', 'LFREJ', 'HFREJ'))):
             self.send_vbs_command('acqTrig.' + channel.upper() + 'Coupling = "' + coupling.upper() + '"')
             return True
         else:
             return False
 
     #------------------------------------------------------------------------------------
-    def set_holdoff_type(self, type: str = 'OFF'):
+    def set_holdoff_type(self, type:str = 'OFF'):
         if type.upper() in ['OFF', 'TIME', 'EVENTS']:
             self.send_vbs_command('acqTrig.HoldoffType = "' + type.upper() + '"')
 
     #------------------------------------------------------------------------------------
-    def set_holdoff_events(self, numEvents: int = 1):
+    def set_holdoff_events(self, numEvents:int = 1):
         if numEvents >= 1 and numEvents <= 1000000000:
             self.send_vbs_command('acqTrig.HoldoffEvents = ' + str(numEvents))
 
     #------------------------------------------------------------------------------------
-    def set_average_sweeps(self, channel: str, sweeps: int = 1):
-        if (channel.upper() in self.availableChannels and sweeps >= 1 and sweeps <= 1000000):
+    def set_average_sweeps(self, channel:str, sweeps:int = 1):
+        if (channel.upper() in self.available_channels and sweeps >= 1 and sweeps <= 1000000):
             self.send_vbs_command('app.acquisition.' + channel.upper() + '.AverageSweeps = ' + str(sweeps))
 
     #------------------------------------------------------------------------------------
@@ -353,49 +444,58 @@ class LeCroyDSO:
         self.send_vbs_command('app.ClearSweeps.ActNow()')
 
     #------------------------------------------------------------------------------------
-    def set_trigger_level(self, source: str, level:float=0.0):
-        if (source.upper() in ('EXT') or source.upper() in self.availableChannels):
+    def set_trigger_level(self, source:str, level:float=0.0):
+        if (source.upper() in ('EXT') or source.upper() in self.available_channels):
             self.send_vbs_command('acqTrig.' + source.upper() + 'Level = ' + str(level))
-        elif (source.upper() in self.availableDigitalChannels):
+        elif (source.upper() in self.available_digital_channels):
             group = int(source.upper().replace('D', '')) / 9
             self.send_vbs_command('app.LogicAnalyzer.MSxxLogicFamily' + str(group) + ' = "UserDefined"')
             self.send_vbs_command('app.LogicAnalyzer.MSxxThreshold' + str(group) + ' = ' + str(level))
+        else:
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def set_digital_hysteresis_level(self, source: str, level:float=0.1):
-        if (source.upper() in self.availableDigitalChannels and level >= .1 and level <= 1.4):
+    def set_digital_hysteresis_level(self, source:str, level:float=0.1):
+        if (source.upper() in self.available_digital_channels and level >= .1 and level <= 1.4):
             group = int(source.upper().replace('D', '')) / 9
             self.send_vbs_command('app.LogicAnalyzer.MSxxLogicFamily' + str(group) + ' = "UserDefined"')
             self.send_vbs_command('app.LogicAnalyzer.MSxxHysteresis' + str(group) + ' = ' + str(level),True)
+        else:
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def set_trigger_type(self, type: str = 'EDGE'):
+    def set_trigger_type(self, type:str = 'EDGE'):
+        """Set Trigger Type 
+
+        Args:
+            type (str, optional): Type of Triger specified as a string. Defaults to 'EDGE'.
+
+        Returns:
+            [type]: [description]
+        """
         if type.upper() in ['EDGE', 'WIDTH', 'QUALIFIED', 'WINDOW',
                             'INTERNAL', 'TV', 'PATTERN']:
             self.send_vbs_command('acqTrig.type = ' + type.upper())
-            return True
         else:
-            return False
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def set_trigger_slope(self, channel: str, slope: str = 'POSITIVE') -> bool:
+    def set_trigger_slope(self, channel:str, slope:str = 'POSITIVE') -> bool:
         if (slope.upper() in ['POSITIVE', 'NEGATIVE', 'EITHER']):
-            if (channel.upper() in self.availableChannels):
+            if (channel.upper() in self.available_channels):
                 self.send_vbs_command('acqTrig.' + channel.upper() + '.slope = "' + slope.upper() + '"')
-                return True
             elif channel.uppper in ['EXT', 'LINE']:
                 self.send_vbs_command('acqTrig.' + channel.upper() + '.slope = "' + slope.upper() + '"')
-                return True
             else:
-                return False				
+                raise ParametersError('source not found')
         else:
-            return False
+            raise ParametersError('slope not found')
 
     #------------------------------------------------------------------------------------
-    def set_coupling(self, source: str, coupling: str ='DC50'):
+    def set_coupling(self, source:str, coupling:str ='DC50'):
         if coupling.upper() not in ['DC50', 'DC1M', 'AC1M', 'GND','DC100k']:
-            return
-        if source.upper() in self.availableChannels:
+            raise ParametersError()
+        if source.upper() in self.available_channels:
             self.send_vbs_command('app.acquisition.' + source.upper() + '.Coupling = "' + coupling.upper() + '"')
         else:
             if source.upper() == 'EXT':
@@ -405,46 +505,41 @@ class LeCroyDSO:
 
 
     #------------------------------------------------------------------------------------
-    def set_ver_offset(self, source: str, verOffset: float = 0.0):
-        if source.upper() in self.availableChannels:
+    def set_ver_offset(self, source:str, verOffset:float = 0.0):
+        if source.upper() in self.available_channels:
             self.send_vbs_command('app.acquisition.' + source.upper() + '.VerOffset = ' + str(verOffset))
-
-    #------------------------------------------------------------------------------------
-    def set_view(self, channel: str, view=True, digitalGroup:str = 'Digital1'):
-        if (channel.upper() in self.availableChannels and (view in [True, False])):
-            self.send_vbs_command('app.acquisition.' + channel.upper() + '.view = ' + str(view))
-            return True
-        elif (channel.upper() in self.availableDigitalChannels and view in (True, False) and digitalGroup.upper() in ('DIGITAL1', 'DIGITAL2', 'DIGITAL3', 'DIGITAL4')):
-            self.send_vbs_command('app.LogicAnalyzer.' + digitalGroup.upper() + '.Digital' + channel.upper()[1:] + ' = ' + str(view))
-            return True
         else:
-            return False
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def enable_digital_group(self,digitalGroup='Digital1',enable=True):
-        if (enable in (True, False) and digitalGroup.upper() in ('DIGITAL1', 'DIGITAL2', 'DIGITAL3', 'DIGITAL4')):
-            self.send_vbs_command('app.LogicAnalyzer.' + digitalGroup.upper() + '.View = ' + str(enable))
+    def set_view(self, channel:str, view:bool=True, digitalGroup:str = 'Digital1'):
+        if (channel.upper() in self.available_channels and (view in [True, False])):
+            self.send_vbs_command('app.acquisition.' + channel.upper() + '.view = ' + str(view))
+        elif (channel.upper() in self.available_digital_channels and view in (True, False) and digitalGroup.upper() in ('DIGITAL1', 'DIGITAL2', 'DIGITAL3', 'DIGITAL4')):
+            self.send_vbs_command('app.LogicAnalyzer.' + digitalGroup.upper() + '.Digital' + channel.upper()[1:] + ' = ' + str(view))
+        else:
+            raise ParametersError('source not found')
 
     #------------------------------------------------------------------------------------
-    def set_bandwidth_limit(self, channel: str, bandwidth='FULL'):
-        if ((channel.upper() in self.availableChannels) and (bandwidth.upper() in ['FULL', '350MHZ', '200MHZ', '100MHZ', '20MHZ', 'RAW'])):
+    def set_bandwidth_limit(self, channel:str, bandwidth:str='FULL'):
+        if ((channel.upper() in self.available_channels) and (bandwidth.upper() in ['FULL', '350MHZ', '200MHZ', '100MHZ', '20MHZ', 'RAW'])):
             self.send_vbs_command('app.acquisition.' + channel.upper() + '.BandwidthLimit = "' + bandwidth.upper() + '"')
 
     #------------------------------------------------------------------------------------
-    def set_ver_scale(self, source: str, verScale: float = 0.001):
+    def set_ver_scale(self, source:str, verScale:float = 0.001):
 
-        if source.upper() in self.availableChannels:
+        if source.upper() in self.available_channels:
             self.send_vbs_command('acq.' + source.upper() + '.VerScale = ' + str(verScale))
 
     #------------------------------------------------------------------------------------
-    def set_ver_scale_variable(self, source: str, variable:bool = False):
-        if variable and source.upper() in self.availableChannels:
+    def set_ver_scale_variable(self, source:str, variable:bool = False):
+        if variable and source.upper() in self.available_channels:
             self.send_vbs_command('acq.' + source.upper() + '.VerScaleVariable = 1')
-        elif not variable and source.upper() in self.availableChannels:
+        elif not variable and source.upper() in self.available_channels:
             self.send_vbs_command('acq.' + source.upper() + '.VerScaleVariable = 0')
 
     #------------------------------------------------------------------------------------
-    def set_sample_mode(self, sampleMode: str = 'REALTIME', segments = 10):
+    def set_sample_mode(self, sampleMode:str = 'REALTIME', segments = 10):
         if sampleMode.upper() in ['REALTIME', 'RIS', 'ROLL', 'SEQUENCE']:
             self.send_vbs_command('acqHorz.samplemode = "' + sampleMode.upper() + '"')
         if sampleMode.upper() in ['SEQUENCE']:
@@ -452,7 +547,7 @@ class LeCroyDSO:
                 self.send_vbs_command('acqHorz.numsegments = ' + str(segments))
 
     #------------------------------------------------------------------------------------
-    def set_reference_clock(self, source: str = 'INTERNAL'):
+    def set_reference_clock(self, source:str = 'INTERNAL'):
         if source.upper() in ('INTERNAL', 'EXTERNAL'):
             self.send_vbs_command('acqHorz.referenceclock = "' + source.upper() + '"')
             return True
@@ -460,12 +555,12 @@ class LeCroyDSO:
             return False
 
     #------------------------------------------------------------------------------------
-    def set_hor_scale(self, horScale: float = 2e-011):
+    def set_hor_scale(self, horScale:float = 2e-011):
         if horScale >= 2e-011 and horScale <= 3200:
             self.send_vbs_command('acqHorz.horscale = ' + str(horScale))
 
     #------------------------------------------------------------------------------------
-    def set_hor_offset(self, horOffset: float = 0.0):
+    def set_hor_offset(self, horOffset:float = 0.0):
         if horOffset >= -5e-5 and horOffset <= 5e-8:
             self.send_vbs_command('acqHorz.horoffset = ' + str(horOffset))
 
@@ -475,11 +570,11 @@ class LeCroyDSO:
             self.send_vbs_command('acqHorz.numpoints = ' + str(numPoints))
 
     #------------------------------------------------------------------------------------
-    def set_max_samples(self, maxSamples: int = 50000):
-        self.write_cvar('acqHorz.MaxSamples', str(maxSamples))
+    def set_max_samples(self, maxSamples:int = 50000):
+        self.send_vbs_command('acqHorz.MaxSamples = ' + str(maxSamples))
 
     #------------------------------------------------------------------------------------
-    def set_sample_rate(self, sampleRate: float = 2e09):
+    def set_sample_rate(self, sampleRate:float = 2e09):
 ##        if sampleRate in [500, 1e3, 2.5e3, 5e3, 10e3, 25e3, 50e3, 100e3, #We
 ##        should go towards a more encompassing method of checking the things
 ##        we set.  However, we could still include helpful tidbits like this
@@ -494,27 +589,27 @@ class LeCroyDSO:
                 return False
 
     #------------------------------------------------------------------------------------
-    def set_memory_mode(self, maximize: str = 'SetMaximumMemory'):
+    def set_memory_mode(self, maximize:str = 'SetMaximumMemory'):
         if maximize.upper() in ['SETMAXIMUMMEMORY', 'FIXEDSAMPLERATE']:
             self.send_vbs_command('acqHorz.maximize = "' + maximize.upper() + '"')
 
     #------------------------------------------------------------------------------------
-    def set_hardcopy_fileName(self, filename: str = 'wav000.jpg'):
+    def set_hardcopy_fileName(self, filename:str = 'wav000.jpg'):
         if filename != None:
             self.send_vbs_command('app.Hardcopy.PreferredFilename = "' + filename + '"')
 
     #------------------------------------------------------------------------------------
-    def set_hardcopy_destination(self, destination: str = 'EMAIL'):
+    def set_hardcopy_destination(self, destination:str = 'EMAIL'):
         if destination.upper() in ['CLIPBOARD', 'EMAIL', 'FILE', 'PRINTER', 'REMOTE']:
             self.send_vbs_command('app.Hardcopy.Destination = "' + destination.upper() + '"')
 
     #------------------------------------------------------------------------------------
-    def set_hardcopy_area(self, area: str = 'DSOWINDOW'):
+    def set_hardcopy_area(self, area:str = 'DSOWINDOW'):
         if area.upper() in ['DSOWINDOW', 'FULLSCREEN', 'GRIDAREAONLY']:
             self.send_vbs_command('app.Hardcopy.HardCopyArea = "' + area.upper() + '"')
 
     #------------------------------------------------------------------------------------
-    def set_hardopy_orientation(self, orientation: str ='LANDSCAPE'):
+    def set_hardopy_orientation(self, orientation:str ='LANDSCAPE'):
         if orientation.upper() in ['PORTRAIT', 'LANDSCAPE']:
             self.send_vbs_command('app.Hardcopy.Orientation = "' + orientation.upper() + '"')
 
@@ -523,29 +618,29 @@ class LeCroyDSO:
         self.send_vbs_command('app.Hardopy.Print')
 
     #------------------------------------------------------------------------------------
-    def set_hardcopy_color(self, color: str = 'BW'):
+    def set_hardcopy_color(self, color:str = 'BW'):
         if color.upper() in ['BW', 'PRINT', 'STD']:
             self.send_vbs_command('app.Hardcopy.UseColor = "' + color.upper() + '"')
 
     #------------------------------------------------------------------------------------
     def get_hor_scale(self):
-        horScale = float(self.read_cvar('acqHorz.horscale'))
+        horScale = float(self.send_vbs_query('acqHorz.horscale'))
         return horScale
 
     #------------------------------------------------------------------------------------
     def get_num_points(self) -> float:
-        horScale = float(self.read_cvar('acqHorz.numpoints'))
+        horScale = float(self.send_vbs_query('acqHorz.numpoints'))
         return horScale
 
     #------------------------------------------------------------------------------------
     def getSampleRate(self) -> float:
-        horScale = float(self.read_cvar('acqHorz.samplerate'))
+        horScale = float(self.send_vbs_query('acqHorz.samplerate'))
         return horScale
 
     #------------------------------------------------------------------------------------
-    def get_num_sweeps(self, source: str) -> int:
-        if source.upper() in self.availableChannels:
-            res = self.read_cvar('app.acquisition.' + source.upper() + '.Out.Result.Sweeps')
+    def get_num_sweeps(self, source:str) -> int:
+        if source.upper() in self.available_channels:
+            res = self.send_vbs_query('app.acquisition.' + source.upper() + '.Out.Result.Sweeps')
             try:
                 numSweeps = int(res)
             except ValueError:
@@ -556,23 +651,23 @@ class LeCroyDSO:
 
     #------------------------------------------------------------------------------------
     def get_time_per_point(self) -> float:
-        timePerPoint = float(self.read_cvar('acqHorz.timeperpoint'))
+        timePerPoint = float(self.send_vbs_query('acqHorz.timeperpoint'))
         return timePerPoint
 
     #------------------------------------------------------------------------------------
-    def get_ver_scale(self, source: str) -> float:
+    def get_ver_scale(self, source:str) -> float:
 
-        if source.upper() in self.availableChannels:
-            verScale = float(self.read_cvar('app.acquisition.' + source.upper() + '.VerScale'))
+        if source.upper() in self.available_channels:
+            verScale = float(self.send_vbs_query('app.acquisition.' + source.upper() + '.VerScale'))
             return verScale
         else:
             return 0.0
 
     #------------------------------------------------------------------------------------
-    def get_ver_offset(self, source: str) -> float:
+    def get_ver_offset(self, source:str) -> float:
 
-        if source.upper() in self.availableChannels:
-            verScale = float(self.read_cvar('app.acquisition.' + source.upper() + '.VerOffset'))
+        if source.upper() in self.available_channels:
+            verScale = float(self.send_vbs_query('app.acquisition.' + source.upper() + '.VerOffset'))
             return verScale
         else:
             return 0.0
@@ -580,27 +675,27 @@ class LeCroyDSO:
     #------------------------------------------------------------------------------------
     def recall_default_panel(self):
         self.send_vbs_command('app.SaveRecall.Setup.DoRecallDefaultPanel')
-        self.waitForOpc()
+        self.wait_for_opc()
 
     #------------------------------------------------------------------------------------
     def get_serial_number(self) -> str:
-        self.scopeSerial = self.read_cvar('app.SerialNumber')
+        self.scopeSerial = self.send_vbs_query('app.SerialNumber')
         return self.scopeSerial
 
     #------------------------------------------------------------------------------------
     def get_instrument_max_bandwidth(self) -> str:
-        self.maxBandwidth = self.read_cvar('app.InstrumentMaxBandwidth')
+        self.maxBandwidth = self.send_vbs_query('app.InstrumentMaxBandwidth')
         return self.maxBandwidth
 
     #------------------------------------------------------------------------------------
     def get_instrument_model(self) -> str:
-        self.instrumentModel = self.read_cvar('app.InstrumentModel')
+        self.instrumentModel = self.send_vbs_query('app.InstrumentModel')
         return self.instrumentModel
 
     #------------------------------------------------------------------------------------
     def get_firmware_version(self) -> str:
-        self.firmwareVersion = self.read_cvar('app.FirmwareVersion')
-        return self.firmwareVersion
+        self.firmware_version = self.send_vbs_query('app.FirmwareVersion')
+        return self.firmware_version
 
     #------------------------------------------------------------------------------------
     def set_measure_statistics(self, on:bool = True):
@@ -611,7 +706,7 @@ class LeCroyDSO:
             self.send_vbs_command('meas.StatsOn = 0')
 
     #------------------------------------------------------------------------------------
-    def set_measure(self, parameterNumber: str, source1: str, source2: str = 'None', paramEngine: str = 'TimeAtLevel', view: bool = True):
+    def set_measure(self, parameterNumber:str, source1:str, source2:str = 'None', paramEngine:str = 'TimeAtLevel', view: bool = True):
         self.send_vbs_command('meas.' + parameterNumber.upper() + '.ParamEngine = "' + paramEngine.upper() + '"')
         self.send_vbs_command('meas.' + parameterNumber.upper() + '.Source1 = "' + source1.upper() + '"')
         self.send_vbs_command('meas.' + parameterNumber.upper() + '.Source2 = "' + source2.upper() + '"')
@@ -621,8 +716,8 @@ class LeCroyDSO:
             self.send_vbs_command('meas.View' + parameterNumber.upper() + ' = 0')
 
     #------------------------------------------------------------------------------------
-    def set_measure_channel(self, parameterNumber: str, source1: str, source2: str = 'None'):
-        if (source1.upper() in self.availableChannels and (source2.upper() in self.availableChannels or source2.upper() == 'NONE')):
+    def set_measure_channel(self, parameterNumber:str, source1:str, source2:str = 'None'):
+        if (source1.upper() in self.available_channels and (source2.upper() in self.available_channels or source2.upper() == 'NONE')):
 
             self.send_vbs_command('meas.' + parameterNumber.upper() + '.Source1 = "' + source1.upper() + '"')
             self.send_vbs_command('meas.' + parameterNumber.upper() + '.Source2 = "' + source2.upper() + '"')
@@ -631,25 +726,35 @@ class LeCroyDSO:
             return False
 
     #------------------------------------------------------------------------------------
-    def get_measure(self, parameterNumber: str) -> tuple:
-        if parameterNumber not in self.availableParameters:
-            return None
-        last = self.read_cvar('meas.' + parameterNumber + '.last.Result.Value')
-        max = self.read_cvar('meas.' + parameterNumber + '.max.Result.Value')
-        mean = self.read_cvar('meas.' + parameterNumber + '.mean.Result.Value')
-        min = self.read_cvar('meas.' + parameterNumber + '.min.Result.Value')
-        num = self.read_cvar('meas.' + parameterNumber + '.num.Result.Value')
-        sdev = self.read_cvar('meas.' + parameterNumber + '.sdev.Result.Value')
-        status = self.read_cvar('meas.' + parameterNumber + '.Out.Result.Status')
-        self.waitForOpc()
+    def get_measure_stats(self, parameterNumber:str) -> tuple:
+        """Reads the measurement statistics values for a parameter
+
+        Args:
+            parameterNumber (str): Parameter name 'P1'
+
+        Returns:
+            tuple: Returns the values (last, max, mean, min, num, sdev, status)
+        """
+        if parameterNumber not in self.available_parameters:
+            raise ParametersError('parameterNumber not found')
+
+        last = self.send_vbs_query('meas.' + parameterNumber + '.last.Result.Value')
+        max = self.send_vbs_query('meas.' + parameterNumber + '.max.Result.Value')
+        mean = self.send_vbs_query('meas.' + parameterNumber + '.mean.Result.Value')
+        min = self.send_vbs_query('meas.' + parameterNumber + '.min.Result.Value')
+        num = self.send_vbs_query('meas.' + parameterNumber + '.num.Result.Value')
+        sdev = self.send_vbs_query('meas.' + parameterNumber + '.sdev.Result.Value')
+        status = self.send_vbs_query('meas.' + parameterNumber + '.Out.Result.Status')
+        self.wait_for_opc()
+
         return (last, max, mean, min, num, sdev, status)
 
     #------------------------------------------------------------------------------------
-    def get_measure_value(self, parameterNumber: str):
-        if parameterNumber not in self.availableParameters:
-            return None
-        last = self.read_cvar('meas.' + parameterNumber + '.last.Result.Value')
-        self.waitForOpc()
+    def get_measure_value(self, parameterNumber:str):
+        if parameterNumber not in self.available_parameters:
+            raise ParametersError('parameterNumber not found')
+        last = self.send_vbs_query('meas.' + parameterNumber + '.last.Result.Value')
+        self.wait_for_opc()
         try:
             fLast = float(last)
         except:
@@ -657,9 +762,11 @@ class LeCroyDSO:
         return fLast
 
     #------------------------------------------------------------------------------------
-    def get_measure_mean(self, parameterNumber: str = 'P1'):
-        mean = self.read_cvar('meas.' + parameterNumber + '.mean.Result.Value')
-        self.waitForOpc()
+    def get_measure_mean(self, parameterNumber:str = 'P1'):
+        if parameterNumber not in self.available_parameters:
+            raise ParametersError('parameterNumber not found')
+        mean = self.send_vbs_query('meas.' + parameterNumber + '.mean.Result.Value')
+        self.wait_for_opc()
         try:
             fMean = float(mean)
         except:
@@ -667,16 +774,17 @@ class LeCroyDSO:
         return fMean
 
     #------------------------------------------------------------------------------------
-    def set_zoom(self, zoomNum: str, source: str):
+    def set_zoom(self, zoomNum:str, source:str):
+        self.validate_source(source)
         self.send_vbs_command('zoom.' + zoomNum.upper() + '.Source = "' + source.upper() + '"')
         self.show_zoom(zoomNum)
 
     #------------------------------------------------------------------------------------
-    def show_zoom(self, zoomNum: str, show: bool = True):
+    def show_zoom(self, zoomNum:str, show: bool = True):
         self.send_vbs_command('zoom.' + zoomNum.upper() + '.View = ' + str(-1) if show else str(0))
 
     #------------------------------------------------------------------------------------
-    def set_zoom_segment(self, zoomNum: str, startSeg: int = 1,numToShow: int = 1):
+    def set_zoom_segment(self, zoomNum:str, startSeg:int = 1,numToShow:int = 1):
         self.send_vbs_command('zoom.' + zoomNum.upper() + '.Zoom.SelectedSegment = "' + str(startSeg) + '"' )
         self.send_vbs_command('zoom.' + zoomNum.upper() + '.Zoom.NumSelectedSegments = "' + str(numToShow) + '"')
 
@@ -685,28 +793,35 @@ class LeCroyDSO:
         if mode.upper() in ['TRIGGERENABLED', 'TRIGGEROUT', 'PASSFAIL', 'FASTEDGE', 'OFF']:
             self.send_vbs_command('app.Acquisition.AuxOutput.AuxMode = "' + mode.upper() + '"')
 
-    #------------------------------------------------------------------------------------
-    def set_show_measure(self, show: bool =True):
-        if show:
-            self.send_vbs_command('meas.ShowMeasure = 1')
-        else:
-            self.send_vbs_command('meas.ShowMeasure = 0')
+    def set_show_measure(self, show:bool =True):
+        """Opens the measure dialog
+
+        Args:
+            show (bool, optional): True to open and False to close. Defaults to True.
+        """
+        self.send_vbs_command('meas.ShowMeasure = 1' if show else 'meas.ShowMeasure = 0')
 
     #------------------------------------------------------------------------------------
-    def set_auxin_attenuation(self, attenuation: str = 'X1'):
+    def set_auxin_attenuation(self, attenuation:str = 'X1'):
         if attenuation.upper() in ['X1', 'DIV10']:
             self.send_vbs_command('app.acquisition.AuxIn.Attenuation = "' + attenuation + '"')
 
-    #------------------------------------------------------------------------------------
     def wait_for_opc(self):
+        """Wait for the previous operation to complete
+        """
         self._conn.wait_for_opc()
 
-    #------------------------------------------------------------------------------------
     def instrument_sleep(self, t):
+        """Sends a sleep command to the instrument
+
+        Args:
+            t ([type]): time to sleep in 
+        """
         self.send_vbs_command('app.Sleep {0}'.format(t))
 
-    #------------------------------------------------------------------------------------
     def force_trigger(self):
+        """Forces a trigger on the instrument
+        """
         self.send_command('FRTR')
 
     #------------------------------------------------------------------------------------
@@ -718,17 +833,21 @@ class LeCroyDSO:
             response = self.send_vbs_query(vbsCommand)
         return response
 
-    #------------------------------------------------------------------------------------
-    def is_popup_dialog_open(self):
+    def is_popup_dialog_open(self) -> bool:
+        """Checks if a popup dialog is open
+
+        Returns:
+            [bool]: True if a popup dialog is open, False otherwise
+        """
         strResponse = self.send_vbs_query('not syscon.dialogontop.widgetpageontop.value is Nothing')
         return re.match('0', strResponse) is None
 
-    #------------------------------------------------------------------------------------
     def close_popup_dialog(self):
+        """Closes any popup dialogs that are open
+        """
         self.send_vbs_command('syscon.DialogOnTop.ClosePopup')
 
-    #------------------------------------------------------------------------------------
-    def click_popup_dialog(self, strPopupAction: str):
+    def click_popup_dialog(self, strPopupAction:str):
         self.send_vbs_command('syscon.DialogOnTop.{0}'.format(strPopupAction))
 
     #------------------------------------------------------------------------------------
@@ -742,16 +861,32 @@ class LeCroyDSO:
         return strResponse
 
     #------------------------------------------------------------------------------------
-    def is_docked_dialog_open(self, bRight) -> bool:
+    def is_docked_dialog_open(self, bRight:bool) -> bool:
+        """Checks if a docked dialog is open
+
+        Args:
+            bRight ([bool]): Set to True to check if right hand side dialog is open
+
+        Returns:
+            bool: Returns True if a docked dialog is open else False
+        """
         strPage = self.get_docked_dialog_selected_page(bRight)
         return strPage.len > 0
 
-    #------------------------------------------------------------------------------------
     def close_docked_dialog(self):
+        """Closes the docked dialog page
+        """
         self.send_vbs_command('syscon.CloseDialog')
 
-    #------------------------------------------------------------------------------------
-    def is_option_enabled(self, strOpt: str) -> bool:
+    def is_option_enabled(self, strOpt:str) -> bool:
+        """Checks if the option specified is enabled
+
+        Args:
+            strOpt (str): Option string
+
+        Returns:
+            bool: True if option present else False
+        """
         strResp = self.send_query('$$OP_PRE? {0}'.format(strOpt))
         return strResp != '0'
 
@@ -781,7 +916,7 @@ class LeCroyDSO:
         # build the vbs query that iterates the collection calling the vbs function for each item, semi-colon sep each item's properties.
         if False:
             # at least for now, for-each (IEnumVARIANT) is not correctly supported on CE... seems to be missing marshalling
-            strResp = self.send_query("vbs? 'strProps = \"\": for each obj in {0}: strProps = strProps & \";\" & getProps(obj): next: return = strProps'".format(vbsCollVarName))
+            strResp = self.send_query("vbs? 'strProps = \"\": for each obj in {0}:strProps = strProps & \";\" & getProps(obj): next: return = strProps'".format(vbsCollVarName))
         else:
             # work-around for bad for-each behavior on CE.
             # painful: need to figure out if collection is 0-based index or not and set the startIndex and stopIndex variables used in query.
@@ -794,7 +929,7 @@ class LeCroyDSO:
             listVbsStatements.append('on error goto 0')
             strVbsStatements = ':'.join(listVbsStatements)
             self.send_vbs_command(strVbsStatements)
-            strResp = self.send_query("vbs? 'strProps = \"\": for i = startIndex to stopIndex: set obj = {0}(i): strProps = strProps & \";\" & getProps(obj): next: return = strProps'".format(vbsCollVarName))
+            strResp = self.send_query("vbs? 'strProps = \"\": for i = startIndex to stopIndex: set obj = {0}(i):strProps = strProps & \";\" & getProps(obj): next: return = strProps'".format(vbsCollVarName))
 
         # parse the response, stripping and splitting on the item and property separators.
         # strip leading semi-colon and split to get list of comma-sep property strings for each object
@@ -864,9 +999,15 @@ class LeCroyDSO:
         iterTokens = iter(lTokens)
         return zip(iterTokens, iterTokens, iterTokens)
 
-    #------------------------------------------------------------------------------------
-    # return list of cvar names for cvars that are eligible for save in panel.
-    def get_panel_cvar_names(self, strVbsAutomationPath):
+    def get_panel_cvar_names(self, strVbsAutomationPath:str) -> list:
+        """Return list of cvar names for cvars that are eligible for save in panel
+
+        Args:
+            strVbsAutomationPath ([str]): Automation start path
+
+        Returns:
+            [list]: Returns the Cvar names 
+        """
         # CvarsValuesRemote property returns comma-sep list of cvar,name pairs for all cvars
         # that are eligible for the panel
         response = self.send_vbs_query('{0}.CvarsValuesRemote'.format(strVbsAutomationPath))
@@ -874,9 +1015,15 @@ class LeCroyDSO:
         # slice-spec to create a list containing every other element
         return lTokens[::2]
 
-    #------------------------------------------------------------------------------------
-    # return list of cvar names for cvars that are visible in xstreambrowser.
-    def get_automation_cvar_names(self, strVbsAutomationPath):
+    def get_automation_cvar_names(self, strVbsAutomationPath:str) -> list:
+        """Return list of cvar names for cvars that are available to the user
+
+        Args:
+            strVbsAutomationPath (str): Automation start path
+
+        Returns:
+            [list]: Returns the Cvar names
+        """
         # these are the panel cvars and any that have cvarflags 16384 (ForcePublic)
         lPanelCvars = self.get_panel_cvar_names(strVbsAutomationPath)
         lCvarsInfo = self.get_cvars_info(strVbsAutomationPath)

@@ -1,0 +1,6 @@
+include README AUTHORS CHANGES LICENSE ChangeLog
+recursive-include lecroydso *
+recursive-include docs *
+recursive-include examples *
+prune docs/build
+global-exclude *.pyc *~ .DS_Store *__pycache__* *.pyo

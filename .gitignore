@@ -7,10 +7,12 @@ docs/_build/
 .idea
 build/
 dist/
+conn_test.bin
 MANIFEST
 .tox
 .coverage
 .eggs
+.pypirc
 venv/
 examples/venv
 

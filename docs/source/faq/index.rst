@@ -3,14 +3,11 @@
 Frequently asked questions
 ===========================
 
-This section covers frequently asked questions in relation with PyVISA. You
-will find first miscellaneous questions and next a set of questions that
-requires more in depth answers.
+This section covers frequently asked questions in relation with LeCroyDSO. 
 
 
 .. toctree::
     :maxdepth: 2
 
     faq
-    getting_nivisa
     contributing

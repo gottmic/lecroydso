@@ -12,6 +12,8 @@ maxLen = 1e6
 
 #Interface
 class DSOConnection:
+    """DSOConnection is an abstract base class. All connections should implement these 
+    """
     @property
     def errorString(self):
         pass

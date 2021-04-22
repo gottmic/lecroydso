@@ -7,6 +7,7 @@
 #-----------------------------------------------------------------------------
 #
 
+from lecroydso.errors import DSOConnectionError
 import time
 import pyvisa
 from lecroydso.dsoconnection import DSOConnection
@@ -15,11 +16,11 @@ maxLen = 1e6
 
 class LeCroyVISA(DSOConnection):
     def __init__( self, connectionString:str, queryResponseMaxLength:int=maxLen ):
-        """[Makes a connection to the instrument using ActiveDSO]
+        """Makes a connection to the instrument using ActiveDSO
 
         Args:
-            connectionString ([string]): [string in a specified format]
-            queryResponseMaxLength ([integer], optional): [description]. Defaults to maxLen.
+            connectionString (str): string in a specified format
+            queryResponseMaxLength (integer, optional): description. Defaults to maxLen.
         """
         self.connectionString = None
         self._visa = None
@@ -28,6 +29,7 @@ class LeCroyVISA(DSOConnection):
         rm = pyvisa.ResourceManager()
         resources = rm.list_resources()
         if connectionString not in resources:
+            raise DSOConnectionError("Unable to connect to resource")
             self.connected = False
             return
         try:
@@ -57,7 +59,7 @@ class LeCroyVISA(DSOConnection):
             self.connected = True
             self.queryResponseMaxLength = queryResponseMaxLength
         except:
-            pass
+            raise DSOConnectionError("Unable to make a LeCroyVISA connection")
 
     def __del__(self):
         self.disconnect()
@@ -76,36 +78,41 @@ class LeCroyVISA(DSOConnection):
 
     @timeout.setter
     def timeout(self, timeout:float):
-        """[sets the timeout value used by the connection]
+        """sets the timeout value used by the connection
 
         Args:
-            timeout ([float]): [timeout value in seconds]
+            timeout (float): timeout value in seconds
 
         """
         self._timeout = timeout
         self._visa.timeout = int(timeout * 1000)
 
     def reconnect(self):
-        """[Reconnects to the instrument with the existing credentials]
+        """Reconnects to the instrument with the existing credentials
         """
         if self.connected:
             self._visa.close()
         self.__init__(self.connectionString)
             
     def send_command(self, message:str):
+        """Sends the command 
+
+        Args:
+            message (str): command string
+        """        
         written = self._visa.write(message)
         self._errorFlag = written != (len(message) + 1)
         self._errorString = ''
 
     def send_query(self, message:str, query_delay:float=None) -> str:
-        """[Send the query and returns the response]
+        """Send the query and returns the response
 
         Args:
-            message ([string]): [command to send]
-            query_delay (float, optional): [delay between the command the response]. Defaults to None.
+            message (str): command to send
+            query_delay (float, optional): delay between the command the response. Defaults to None.
 
         Returns:
-            [string]: [description]
+            string: description
         """
         if self._visa.write(message) == (len(message) + 1):
             if query_delay is not None:
@@ -121,70 +128,70 @@ class LeCroyVISA(DSOConnection):
         return response
 
     def send_vbs_command(self, message:str):
-        """[sends the command as a vbs formatted comamnd]
+        """Sends the command as a vbs formatted comamnd
 
         Args:
-            message ([string]): [command string]
+            message (str): command string
         """
         self.send_command('vbs \'' + message + '\'')
 
     def send_vbs_query(self, message:str, query_delay:float=None) -> str:
-        """[formats the query as a VBS string response]
+        """Formats the query as a VBS string response
 
         Args:
-            message ([string]): [query string]
+            message (str): query string
 
         Returns:
-            [string]: [returns the reponse as a string]
+            string: returns the reponse as a string
         """
         response = self.send_query('vbs? \'Return = ' + message + '\'', query_delay)
         return response
 
     def wait_for_opc(self) -> bool:
-        """[Waits for the prior operation to complete]
+        """Waits for the prior operation to complete
 
         Returns:
-            [boolean]: [True on success, False on failure]
+            boolean: True on success, False on failure
         """
         return self._visa.send_query('*OPC?')
 
     def disconnect(self):
-        """[Disconnects the ActiveDSO connection]
+        """Disconnects the connection
         """
         if self._visa is not None:
             self._visa.close()
         self.connected = False
 
     def write_raw(self, message:bytes, terminator:bool=True) -> bool:
-        """[write binary data to the instrument]
+        """Write binary data to the instrument
 
         Args:
-            message (bytes): [data to send]
-            terminator (bool, optional): [Terminate the transfer after command]. Defaults to True.
+            message (bytes): data to send
+            terminator (bool, optional): Terminate the transfer after command. Defaults to True.
 
         Returns:
-            bool: [success on success, False on failure]
+            bool: success on success, False on failure
         """
         self._visa.write_raw(message)
         if terminator:
             self._visa.write_termination()
 
     def read_raw(self, max_bytes:int) -> bytes:
-        """[reads a binary response from the instrument]
+        """Reads a binary response from the instrument
 
         Args:
-            max_bytes (int): [Maximum number of bytes to read]
+            max_bytes (int): Maximum number of bytes to read
 
         Returns:
-            bytes: [returns the data as bytes]
+            bytes: returns the data as bytes
         """
         return self.read_bytes(max_bytes, break_on_termchar=True)
 
     def get_panel(self) -> str:
-        """[reads the instrument control state into a string]
+        """Reads the instrument control state into a string
 
         Returns:
-            str: [panel file returned as a string, trailing terminator removed]
+            str: panel file returned as a string, trailing terminator removed
         """
         self._visa.write('PNSU?')
         time.sleep(0.1)
@@ -203,28 +210,28 @@ class LeCroyVISA(DSOConnection):
         return (panel.decode('utf-8').strip('ffffffff'))
 
     def set_panel(self, panel: str) -> bool:
-        """[Set the instrument control state using a panel string, typically from the method get_panel]
+        """Set the instrument control state using a panel string, typically from the method get_panel
 
         Args:
-            panel (str): [description]
+            panel (str): description
 
         Returns:
-            bool: [True on success, False on failure]
+            bool: True on success, False on failure
         """
         written = self._visa.write_binary_values('PNSU ', (panel + 'ffffffff').encode('utf-8'), datatype = 'b')
         return written >= len(panel)
 
 
     def transfer_file_to_dso(self, remote_device: str, remote_filename: str, local_filename: str) -> bool:
-        """[Transfers a file from the PC to the remote device]
+        """Transfers a file from the PC to the remote device
 
         Args:
-            remote_device (str): [The device name on the instrument end, typically CARD, HDD]
-            remote_filename (str): [The name and path of the destination file on the instrument]
-            local_filename (str): [The name and path of the source file on the PC]
+            remote_device (str): The device name on the instrument end, typically CARD, HDD
+            remote_filename (str): The name and path of the destination file on the instrument
+            local_filename (str): The name and path of the source file on the PC
 
         Returns:
-            bool: [True on success, False on failure]
+            bool: True on success, False on failure
         """
         with open(local_filename, 'rb') as fp:
             filearray = fp.read()
@@ -234,15 +241,15 @@ class LeCroyVISA(DSOConnection):
         return written >= len(filearray)
 
     def transfer_file_to_pc(self, remote_device: str, remote_filename: str, local_filename: str) -> bool:
-        """[Transfers a file from the remote device to the PC]
+        """Transfers a file from the remote device to the PC
 
         Args:
-            remote_device (str): [The device name on the instrument end, typically CARD, HDD]
-            remote_filename (str): [The name and path of the destination file on the instrument]
-            local_filename (str): [The name and path of the source file on the PC]
+            remote_device (str): The device name on the instrument end, typically CARD, HDD
+            remote_filename (str): The name and path of the destination file on the instrument
+            local_filename (str): The name and path of the source file on the PC
 
         Returns:
-            bool: [True on success, False on failure]
+            bool: True on success, False on failure
         """
         header = 'TRFL? DISK,{0},FILE,"{1}",'.format(remote_device, remote_filename)
         self._visa.write(header)
@@ -268,14 +275,14 @@ class LeCroyVISA(DSOConnection):
         return True
 
     def store_hardcopy_to_file(self, format:str, aux_format:str, filename:str):
-        """[Transfers a hardcopy image from the isntrument and stores it on the PC]
+        """Transfers a hardcopy image from the isntrument and stores it on the PC
 
         Args:
-            format (str): [Hardcopy format: BMP, JPEG, PNG, TIFF]
-            aux_format (str): [Auxilary format, typically empty ("")]
-            filename (str): [destination filename]
+            format (str): Hardcopy format: BMP, JPEG, PNG, TIFF
+            aux_format (str): Auxilary format, typically empty ("")
+            filename (str): destination filename
 
         Returns:
-            [type]: [description]
+            type: True on success, False on failure
         """
         return True

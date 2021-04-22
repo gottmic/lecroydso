@@ -11,9 +11,5 @@ communications issues.
 .. toctree::
     :maxdepth: 2
 
-    getting
-    configuring
-    communication
-    example
-    rvalues
-    names
+    installation
+    otherexamples

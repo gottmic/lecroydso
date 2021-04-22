@@ -2,10 +2,24 @@ import unittest
 from lecroydso.lecroydso import LeCroyDSO
 from lecroydso.activedso import ActiveDSO
 from lecroydso.lecroyvisa import LeCroyVISA
+from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError
+
 import os
 
+connection_string = 'VXI11:127.0.0.1'
+
 class TestLeCroyDSO(unittest.TestCase):
-            
+    def setUp(self):
+        try:
+            transport = LeCroyVISA(connection_string)     # replace with IP address of the scope
+            self.my_conn = LeCroyDSO(transport)
+
+        except DSOConnectionError as err:
+            self.fail(err.message)
+
+    def tearDown(self):
+        self.my_conn.disconnect()
+
     def test_connection(self):
 
         # Make and test a VICP connection through ActiveDSO 
@@ -33,6 +47,9 @@ class TestLeCroyDSO(unittest.TestCase):
         self.assertTrue(dso.connected, "No DSO connected at TCPIP0::127.0.0.1::inst0::INSTR")
 
         dso.disconnect()
+
+    def test_get_waveform(self):
+        wf = self.my_conn.get_waveform('C1')
 
 if __name__ == '__main__':
     unittest.main()
