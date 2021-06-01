@@ -1,6 +1,6 @@
 import unittest
-from lecroydso.lecroyvisa import LeCroyVISA
-from lecroydso.errors import DSOConnectionError
+from lecroydso import LeCroyVISA
+from lecroydso import DSOConnectionError
 from tests.testConnection import TestConnection
 
 # requires a scope application running on the local host with Remote as LXI

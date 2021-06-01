@@ -1,5 +1,4 @@
 #-----------------------------------------------------------------------------
-# $Header: //SoftwareQA/Test/IR/Nightly_Automation/MergeStartXreplay/ActiveDSO.py#3 $
 # Summary:		Implementation of LeCroyVISA class
 # Authors:		Ashok Bruno
 # Started:		02/10/2021
@@ -7,38 +6,41 @@
 #-----------------------------------------------------------------------------
 #
 
-from lecroydso.errors import DSOConnectionError
+from pyvisa.resources.resource import Resource
+from lecroydso.errors import DSOConnectionError, ParametersError
 import time
 import pyvisa
-from lecroydso.dsoconnection import DSOConnection
+from lecroydso import DSOConnection
 
 maxLen = 1e6
 
 class LeCroyVISA(DSOConnection):
-    def __init__( self, connectionString:str, queryResponseMaxLength:int=maxLen ):
+    _visa: Resource
+
+    def __init__( self, connection_string:str, query_response_max_length:int=maxLen ):
         """Makes a connection to the instrument using ActiveDSO
 
         Args:
-            connectionString (str): string in a specified format
-            queryResponseMaxLength (integer, optional): description. Defaults to maxLen.
+            connection_string (str): string in a specified format
+            query_response_max_length (integer, optional): description. Defaults to maxLen.
         """
-        self.connectionString = None
+        self.connection_string = None
         self._visa = None
         self.connected = False
         
         rm = pyvisa.ResourceManager()
         resources = rm.list_resources()
-        if connectionString not in resources:
+        if connection_string not in resources:
             raise DSOConnectionError("Unable to connect to resource")
             self.connected = False
             return
         try:
-            scope = rm.open_resource(connectionString)
+            scope = rm.open_resource(connection_string)
             scope.read_termination = '\n'
             scope.write_termination = '\n'
             scope.query_delay = 0.001
             scope.timeout = 10000
-            if 'TCPIP' in connectionString or 'VICP' in connectionString:
+            if 'TCPIP' in connection_string or 'VICP' in connection_string:
                 scope.timeout = 1000
                 self._timeout = 1.0
             idn = scope.query('*IDN?')
@@ -55,9 +57,11 @@ class LeCroyVISA(DSOConnection):
                 return 
 
             self._visa = scope
-            self.connectionString = connectionString
+            self.connection_string = connection_string
             self.connected = True
-            self.queryResponseMaxLength = queryResponseMaxLength
+            self._query_response_max_length = query_response_max_length
+            self._error_string = ''
+            self._error_flag = ''
         except:
             raise DSOConnectionError("Unable to make a LeCroyVISA connection")
 
@@ -65,12 +69,12 @@ class LeCroyVISA(DSOConnection):
         self.disconnect()
 
     @property
-    def errorString(self):
-        return self._errorString
+    def error_string(self):
+        return self._error_string
 
     @property
-    def errorFlag(self):
-        return self._errorFlag
+    def error_flag(self):
+        return self._error_flag
   
     @property 
     def timeout(self):
@@ -92,19 +96,19 @@ class LeCroyVISA(DSOConnection):
         """
         if self.connected:
             self._visa.close()
-        self.__init__(self.connectionString)
+        self.__init__(self.connection_string)
             
-    def send_command(self, message:str):
+    def write(self, message:str):
         """Sends the command 
 
         Args:
             message (str): command string
         """        
         written = self._visa.write(message)
-        self._errorFlag = written != (len(message) + 1)
-        self._errorString = ''
+        self._error_flag = written != (len(message) + 1)
+        self._error_string = ''
 
-    def send_query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message:str, query_delay:float=None) -> str:
         """Send the query and returns the response
 
         Args:
@@ -119,23 +123,23 @@ class LeCroyVISA(DSOConnection):
                 time.sleep(query_delay)
             response = self._visa.read()
         else:
-            self._errorFlag = True
-            self._errorString = 'Write to device Failed'
+            self._error_flag = True
+            self._error_string = 'Write to device Failed'
             return None
 
-        self._errorFlag = False
-        self._errorString = ''
+        self._error_flag = False
+        self._error_string = ''
         return response
 
-    def send_vbs_command(self, message:str):
+    def write_vbs(self, message:str):
         """Sends the command as a vbs formatted comamnd
 
         Args:
             message (str): command string
         """
-        self.send_command('vbs \'' + message + '\'')
+        self.write('vbs \'' + message + '\'')
 
-    def send_vbs_query(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message:str, query_delay:float=None) -> str:
         """Formats the query as a VBS string response
 
         Args:
@@ -144,10 +148,10 @@ class LeCroyVISA(DSOConnection):
         Returns:
             string: returns the reponse as a string
         """
-        response = self.send_query('vbs? \'Return = ' + message + '\'', query_delay)
+        response = self.query('vbs? \'Return = ' + message + '\'', query_delay)
         return response
 
-    def wait_for_opc(self) -> bool:
+    def wait_opc(self) -> bool:
         """Waits for the prior operation to complete
 
         Returns:
@@ -176,16 +180,16 @@ class LeCroyVISA(DSOConnection):
         if terminator:
             self._visa.write_termination()
 
-    def read_raw(self, max_bytes:int) -> bytes:
+    def read_raw(self, max_bytes:int) -> memoryview:
         """Reads a binary response from the instrument
 
         Args:
             max_bytes (int): Maximum number of bytes to read
 
         Returns:
-            bytes: returns the data as bytes
+            memoryview: returns the data as memoryview
         """
-        return self.read_bytes(max_bytes, break_on_termchar=True)
+        return memoryview(self.read_bytes(max_bytes, break_on_termchar=True))
 
     def get_panel(self) -> str:
         """Reads the instrument control state into a string
@@ -233,12 +237,19 @@ class LeCroyVISA(DSOConnection):
         Returns:
             bool: True on success, False on failure
         """
-        with open(local_filename, 'rb') as fp:
-            filearray = fp.read()
-        filearray += 'ffffffff'.encode('utf-8')
-        header = 'TRFL DISK,{0},FILE,"{1}",'.format(remote_device, remote_filename)
-        written = self._visa.write_binary_values(header, filearray, datatype='B')
-        return written >= len(filearray)
+        size_of_transfer = 0
+        try:
+            with open(local_filename, 'rb') as fp:
+                fp.seek(0)
+                filearray = fp.read()
+                filearray += 'ffffffff'.encode('utf-8')
+                size_of_transfer = len(filearray)
+                header = 'TRFL DISK,{0},FILE,"{1}",'.format(remote_device, remote_filename)
+                written = self._visa.write_binary_values(header, filearray, datatype='B')
+        except IOError:
+            raise ParametersError('File already open or permissions error')
+
+        return written >= size_of_transfer
 
     def transfer_file_to_pc(self, remote_device: str, remote_filename: str, local_filename: str) -> bool:
         """Transfers a file from the remote device to the PC

@@ -14,9 +14,9 @@ class TestActiveDSO(unittest.TestCase, TestConnection):
             self.my_conn = ActiveDSO(connection_string)     # replace with IP address of the scope
         except DSOConnectionError as err:
             self.fail(err.message)
-        self.assertFalse(self.my_conn.errorFlag)
-        self.my_conn.send_command('CHDR OFF')
-        chdr = self.my_conn.send_query('CHDR?')
+        self.assertFalse(self.my_conn.error_flag)
+        self.my_conn.write('CHDR OFF')
+        chdr = self.my_conn.query('CHDR?')
         if 'WARNING' in chdr:
             self.fail("Connection on the instrument set to TCPIP, please set to LXI")
 

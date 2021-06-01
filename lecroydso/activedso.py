@@ -1,5 +1,4 @@
 #-----------------------------------------------------------------------------
-# $Header: //SoftwareQA/Test/IR/Nightly_Automation/MergeStartXreplay/ActiveDSO.py#3 $
 # Summary:		Implementation of ActiveDSO class
 # Authors:		Ashok Bruno
 # Started:		2/8/2021
@@ -8,21 +7,21 @@
 #
 
 
-from lecroydso.dsoconnection import DSOConnection
+from lecroydso import DSOConnection
 from lecroydso.errors import DSOConnectionError, DSOIOError
 import time
 
 maxLen = 1e6
 
 class ActiveDSO(DSOConnection):
-    def __init__( self, connectionString:str, queryResponseMaxLength:int=maxLen ):
+    def __init__( self, connection_string:str, query_response_max_length:int=maxLen ):
         """Makes a connection to the instrument using ActiveDSO
 
         Args:
-            connectionString (string): string in a specified format
-            queryResponseMaxLength (integer, optional): Default max bytes for query responses, Defaults to maxLen.
+            connection_string (string): string in a specified format
+            query_response_max_length (integer, optional): Default max bytes for query responses, Defaults to maxLen.
         """
-        self.connectionString = None
+        self.connection_string = None
         self.aDSO = None
         try:
             from win32com.client import DispatchEx
@@ -33,38 +32,45 @@ class ActiveDSO(DSOConnection):
             raise DSOConnectionError('ActiveDSO not installed or registered')
             return
 
-        if self.aDSO.MakeConnection(connectionString):
-            if 'IP:' in connectionString or 'TCPIP:' in connectionString or 'VXI11:' in connectionString:
+        if self.aDSO.MakeConnection(connection_string):
+            if 'IP:' in connection_string or 'TCPIP:' in connection_string or 'VXI11:' in connection_string:
                 self._timeout = 1.0
                 self.aDSO.SetTimeout(1.0)  # set 1 second as timeout for these types of connections
             self.connected = True
-            self.connectionString = connectionString
-            self.queryResponseMaxLength = queryResponseMaxLength
+            self.connection_string = connection_string
+            self._query_response_max_length = query_response_max_length
         else:
             self.connected = False
-            raise DSOConnectionError('ActiveDSO connection failed'.format(connectionString))
+            raise DSOConnectionError('ActiveDSO connection failed'.format(connection_string))
             return
 
     def __del__(self):
         self.disconnect()
     
     @property
-    def errorString(self):
-        """Contains the error message when the errorFlag is True"""
-        self._errorString = self.aDSO.ErrorString
-        return self._errorString
+    def error_string(self):
+        """Contains the error message when the error_flag is True"""
+        self._error_string = self.aDSO.errorString
+        return self._error_string
 
     @property
-    def errorFlag(self):
+    def error_flag(self):
         """Set to True when an error occurs"""
-        self._errorFlag = self.aDSO.ErrorFlag
-        return self._errorFlag
+        self._error_flag = self.aDSO.errorFlag
+        return self._error_flag
    
     @property 
     def timeout(self) -> float:
         """timeout value in seconds in float"""
         return self._timeout
     
+    @property
+    def query_response_max_length(self):
+        return self._query_response_max_length
+
+    @query_response_max_length.setter
+    def query_response_max_length(self, val:int):
+        self._query_respose_max_length = val
 
     @timeout.setter
     def timeout(self, timeout:float):
@@ -76,14 +82,14 @@ class ActiveDSO(DSOConnection):
     def reconnect(self):
         """Reconnects to the instrument with the existing credentials
         """
-        if self.aDSO.MakeConnection(self.connectionString):
+        if self.aDSO.MakeConnection(self.connection_string):
             self.connected = True
         else:
             self.connected = False
             raise DSOConnectionError('ActiveDSO connection failed')
             return
             
-    def send_command(self, message:str, terminator:bool=True):
+    def write(self, message:str, terminator:bool=True):
         """sends a strings to the DSO with or without a terminating character
 
         Args:
@@ -92,7 +98,7 @@ class ActiveDSO(DSOConnection):
         """
         self.aDSO.WriteString(message, terminator)
 
-    def read_string(self, max_bytes:int) -> str:
+    def read(self, max_bytes:int) -> str:
         """reads string from the instrument
 
         Args:
@@ -103,7 +109,7 @@ class ActiveDSO(DSOConnection):
         """
         return self.aDSO.ReadString(max_bytes)
 
-    def send_query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message:str, query_delay:float=None) -> str:
         """Send the query and returns the response
 
         Args:
@@ -116,13 +122,13 @@ class ActiveDSO(DSOConnection):
         if self.aDSO.WriteString(message, True):
             if query_delay is not None:
                 time.sleep(query_delay)
-            response = self.aDSO.ReadString(self.queryResponseMaxLength)
+            response = self.aDSO.ReadString(self._query_response_max_length)
         else:
             raise DSOIOError('Write to device failed')
 
         return response
 
-    def send_vbs_command(self, message:str):
+    def write_vbs(self, message:str):
         """sends the command as a vbs formatted comamnd
 
         Args:
@@ -130,7 +136,7 @@ class ActiveDSO(DSOConnection):
         """
         self.aDSO.WriteString('vbs \'' + message + '\'', True)
 
-    def send_vbs_query(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message:str, query_delay:float=None) -> str:
         """formats the query as a VBS string response
 
         Args:
@@ -142,12 +148,12 @@ class ActiveDSO(DSOConnection):
         if self.aDSO.WriteString('vbs? \'Return = ' + message + '\'', True):
             if query_delay is not None:
                 time.sleep(query_delay)
-            response = self.aDSO.ReadString(self.queryResponseMaxLength)
+            response = self.aDSO.ReadString(self._query_response_max_length)
         else:
             raise DSOIOError('Write to device failed')
         return response
 
-    def wait_for_opc(self) -> bool:
+    def wait_opc(self) -> bool:
         """Waits for the prior operation to complete
 
         Returns:
@@ -167,16 +173,16 @@ class ActiveDSO(DSOConnection):
         """
         return self.aDSO.WriteBinary(message, len(message), terminator)
 
-    def read_raw(self, max_bytes:int) -> bytes:
+    def read_raw(self, max_bytes:int) -> memoryview:
         """reads a binary response from the instrument
 
         Args:
             max_bytes (int): Maximum number of bytes to read
 
         Returns:
-            bytes: returns the data as bytes
+            memoryview: returns the data as buffer
         """
-        return self.aDSO.ReadBinary(max_bytes if max_bytes is not None else self.queryResponseMaxLength)
+        return self.aDSO.ReadBinary(max_bytes if max_bytes is not None else self._query_response_max_length)
 
     def disconnect(self):
         """Disconnects the ActiveDSO connection

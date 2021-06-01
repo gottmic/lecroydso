@@ -3,7 +3,7 @@ LeCroyDSO
 
 
 A Python package for communicating to LeCroy oscilloscopes via various 
-protocols GPIB, VXI or USBTMC or VIP.
+protocols VICP, VXI, USBTMC or GPIB.
 
 Description
 -----------

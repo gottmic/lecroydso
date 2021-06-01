@@ -5,13 +5,20 @@ from lecroydso.lecroyvisa import LeCroyVISA
 from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError
 
 import os
+use_activedso = True
 
-connection_string = 'VXI11:127.0.0.1'
+if os.name != 'nt':
+    use_activedso = False
+
+connection_string = 'TCPIP0::127.0.0.1::inst0::INSTR'
+if use_activedso:
+    connection_string = 'VXI11:127.0.0.1'
 
 class TestLeCroyDSO(unittest.TestCase):
     def setUp(self):
         try:
-            transport = LeCroyVISA(connection_string)     # replace with IP address of the scope
+            transport = ActiveDSO(connection_string) if use_activedso else LeCroyVISA(connection_string) 
+            self.assertTrue(transport.connected, "Unable to make connection")
             self.my_conn = LeCroyDSO(transport)
 
         except DSOConnectionError as err:
@@ -20,36 +27,44 @@ class TestLeCroyDSO(unittest.TestCase):
     def tearDown(self):
         self.my_conn.disconnect()
 
-    def test_connection(self):
+    def test_properties(self):
+        dso = self.my_conn
+        self.assertGreater(dso.num_channels, 2)
+        self.assertGreater(dso.num_functions, 2)
+        self.assertGreater(dso.num_memories, 2)
+        self.assertGreater(dso.num_zooms, 2)
+        self.assertGreater(dso.num_parameters, 2)
+        self.assertIsNotNone(dso.firmware_version)
+        self.assertIsNotNone(dso.model)
+        self.assertIsNotNone(dso.manufacturer)
+        dso.hor_scale = 50e-9
+        self.assertEqual(50e-9, dso.hor_scale)
+        dso.hor_offset = 100e-9
+        self.assertEqual(dso.hor_offset, 100e-9)
 
-        # Make and test a VICP connection through ActiveDSO 
-        # this will work on windows but not on linux
-        if os.name == 'nt':
-            aDSO_conn = ActiveDSO('VXI11:127.0.0.1')
-            self.assertTrue(aDSO_conn.connected, "Unable to make connection to ActiveDSO")
 
-            if not aDSO_conn.connected:
-                return
-            aDSO_conn.timeout = 0.5     # set the timeout property of the test_connection
-
-            dso = LeCroyDSO(aDSO_conn)
-            self.assertTrue(dso.connected, "No DSO connected at VXI11:127.0.0.1")
-
-            dso.disconnect()
-
-        # Make and test a VISA connection
-        visa_conn = LeCroyVISA('TCPIP0::127.0.0.1::inst0::INSTR')
-        self.assertTrue(visa_conn.connected, "Unable to make connection to LeCroyVISA")
-
-        if not visa_conn.connected:
-            return
-        dso = LeCroyDSO(visa_conn)
-        self.assertTrue(dso.connected, "No DSO connected at TCPIP0::127.0.0.1::inst0::INSTR")
-
-        dso.disconnect()
+    def test_acquisition(self):
+        dso = self.my_conn
+        dso.set_hor_scale(50e-9)
+        dso.set_hor_offset()
+        dso.set_trigger_source('C1')
+        dso.set_trigger_level('C1', 0.1)
+        for mode in ['AUTO', 'NORMAL']:
+            dso.set_trigger_mode(mode)
+            trigger_mode = dso.query('TRMD?')
+            if trigger_mode == 'NORM':
+                trigger_mode = 'NORMAL'
+            self.assertEqual(trigger_mode, mode)
+        
 
     def test_get_waveform(self):
+        model = self.my_conn.get_instrument_model()
         wf = self.my_conn.get_waveform('C1')
+        
+    def test_dialog_functions(self):
+        pages = self.my_conn.get_docked_dialog_page_names()
+        sel_page = self.my_conn.get_docked_dialog_selected_page()
+        print(sel_page)
 
 if __name__ == '__main__':
     unittest.main()

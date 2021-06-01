@@ -1,25 +1,25 @@
+import tempfile
 from lecroydso.dsoconnection import DSOConnection
 import os
-import unittest
 
 class TestConnection():
     def __init__(self):
         self.my_conn: DSOConnection
  
     def test_basic_commands(self):
-        self.my_conn.send_command('CHDR OFF')
-        print(self.my_conn.errorString)
-        self.assertFalse(self.my_conn.errorFlag)
+        self.my_conn.write('CHDR OFF')
+        print(self.my_conn.error_string)
+        self.assertFalse(self.my_conn.error_flag)
 
-        idn = self.my_conn.send_query('*IDN?')
-        self.assertFalse(self.my_conn.errorFlag)
+        idn = self.my_conn.query('*IDN?')
+        self.assertFalse(self.my_conn.error_flag)
         self.assertTrue(len(idn) > 0)
 
-        self.my_conn.send_vbs_command('app.Acquisition.C1.VerScale=0.01')
-        response = self.my_conn.send_query('C1:VDIV?')
+        self.my_conn.write_vbs('app.Acquisition.C1.VerScale=0.01')
+        response = self.my_conn.query('C1:VDIV?')
         self.assertTrue('10E-3' in response)
 
-        id = self.my_conn.send_vbs_query('app.InstrumentID')
+        id = self.my_conn.query_vbs('app.InstrumentID')
         self.assertTrue(len(id.split(',')) == 4)
 
         cur_timeout = self.my_conn.timeout
@@ -31,15 +31,15 @@ class TestConnection():
         # test write_binary and read_binary functions
 
 
-    def test_panel_functions(self):
+    def panel_functions(self):
         setup = self.my_conn.get_panel()
         self.assertTrue(setup.startswith("\' XStreamDSO ConfigurationVBScript"))
 
         self.assertTrue(self.my_conn.set_panel(setup))
 
-    def test_file_transfer(self):
+    def file_transfer(self):
         random_bytes = os.urandom(100000)
-        source_file = 'conn_test.bin'
+        source_file = tempfile.gettempdir() + 'conn_test.bin'
         dest_file = r'C:\Temp\conn_test.bin'
         with open(source_file, 'wb+') as fp:
             fp.write(random_bytes)
@@ -61,3 +61,7 @@ class TestConnection():
         with open(dest_file, 'rb') as fp:
             transferred_bytes = fp.read()
             self.assertEqual(random_bytes, transferred_bytes)   # check if the source and destination bytes are the same
+
+    def test_utilities(self):
+        self.file_transfer()
+        self.panel_functions()

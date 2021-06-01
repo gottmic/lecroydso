@@ -1,5 +1,4 @@
 #-----------------------------------------------------------------------------
-# $Header: //SoftwareQA/Test/IR/Nightly_Automation/MergeStartXreplay/ActiveDSO.py#3 $
 # Summary:		Implementation of ActiveDSO class
 # Authors:		Ashok Bruno
 # Started:		2/8/2021
@@ -12,45 +11,47 @@ maxLen = 1e6
 
 #Interface
 class DSOConnection:
-    """DSOConnection is an abstract base class. All connections should implement these 
-    """
     @property
-    def errorString(self):
+    def error_string(self):
         pass
 
     @property
-    def errorFlag(self):
+    def error_flag(self):
         pass
 
     @property 
     def timeout(self):
         pass
 
+    @property
+    def query_response_max_length(self):
+        pass
+
     def reconnect(self):
         pass
             
-    def send_command(self, message:str, terminator:bool=True):
+    def write(self, message:str, terminator:bool=True):
         pass
 
-    def read_string(self, max_bytes:int) -> str:
+    def read(self, max_bytes:int) -> str:
         pass
 
-    def send_query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message:str, query_delay:float=None) -> str:
         pass
 
-    def send_vbs_command(self, message:str):
+    def write_vbs(self, message:str):
         pass
 
-    def send_vbs_query(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message:str, query_delay:float=None) -> str:
         pass
 
-    def wait_for_opc(self) -> bool:
+    def wait_opc(self) -> bool:
         pass
 
     def write_raw(self, message:bytes, terminator:bool=True) -> bool:
         pass
 
-    def read_raw(self, max_bytes:int) -> bytes:
+    def read_raw(self, max_bytes:int) -> memoryview:
         pass
 
     def disconnect(self):
