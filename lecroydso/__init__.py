@@ -27,7 +27,7 @@ else:
     from importlib_metadata import PackageNotFoundError, version  # type: ignore
 
 from lecroydso.dsoconnection import DSOConnection
-from lecroydso.errors import DSOConnectionError
+from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError
 from lecroydso.activedso import ActiveDSO
 from lecroydso.lecroyvisa import LeCroyVISA
 from lecroydso.lecroydso import LeCroyDSO
