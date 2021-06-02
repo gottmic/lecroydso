@@ -1,11 +1,9 @@
 .. _api_lecroydso:
 
-.. py:module:: lecroydso
-
 LeCroyDSO 
 ---------
 
-.. autoclass:: LeCroyDSO
+.. autoclass:: lecroydso.LeCroyDSO
     :members:
     :inherited-members:
     :exclude-members: 
