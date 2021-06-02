@@ -1,5 +1,6 @@
 .. _api_activedso:
 
+.. py:module:: lecroydso
 
 ActiveDSO Connection
 --------------------
@@ -13,7 +14,7 @@ user, allowing the software developer to focus on his or her application and to 
 of the lower-level interface calls.
 
 
-.. autoclass:: lecroydso.ActiveDSO
+.. autoclass:: ActiveDSO
     :members:
     :inherited-members:
     :exclude-members: 
