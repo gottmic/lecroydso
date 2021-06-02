@@ -16,7 +16,7 @@ is a few lines of code::
     >>> transport = LeCroyVISA('TCPIP0::127.0.0.1::inst0::INSTR')
     >>> dso = LeCroyDSO(transport)
     >>> print(dso.send_query('*IDN?'))
-    LECROY,DDA804ZI,CHE-LABRUNO,0.8.6
+    LECROY,DDA804ZI,LCRY0401N22234,9.6.0
     >>>
 
 This should work on Windows, Linux and Mac OS with the necessary backend

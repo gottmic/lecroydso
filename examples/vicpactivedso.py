@@ -1,25 +1,25 @@
-from lecroydso.activedso import ActiveDSO
 from lecroydso.errors import DSOConnectionError, DSOIOError
-import os
-from lecroydso  import ActiveDSO
-from lecroydso import LeCroyDSO
+from lecroydso  import ActiveDSO, LeCroyDSO
 connection_string = 'VXI11:127.0.0.1'
 
 def vicpactivedso():
     try:
         print('Trying to make a connection to ', connection_string)
         dso = LeCroyDSO(ActiveDSO(connection_string))
-        print(dso.send_query('*IDN?'))
+        print(dso.query('*IDN?'))
 
         dso.set_default_state()
 
         # send VBS style command
-        dso.write('app.Acquisition.C1.VerScale=0.01')
+        dso.write_vbs('app.Acquisition.C1.VerScale=0.01')
 
         # query the value 
         response = dso.query('C1:VDIV?')
         print(response)
 
+        # query it VBS style
+        vbs_response = dso.query_vbs('app.Acquisition.C1.VerScale')
+        print(vbs_response)
 
     except DSOConnectionError as e:
         print('ERROR: Unable to make a connection to ', connection_string)

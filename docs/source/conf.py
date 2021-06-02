@@ -61,7 +61,7 @@ author = "LeCroyDSO Authors"
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-version = "0.0.2"#get_version(project)
+version = get_version(project)
 release = version
 this_year = datetime.date.today().year
 copyright = "%s, %s" % (this_year, author)

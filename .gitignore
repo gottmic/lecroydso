@@ -4,6 +4,7 @@ __pycache__
 *.pyc
 .DS_Store
 docs/_build/
+docs/venv/
 .idea
 build/
 dist/
@@ -14,7 +15,7 @@ MANIFEST
 .eggs
 .pypirc
 venv/
-examples/venv
+examples/venv/
 
 .vscode
 htmlcov/

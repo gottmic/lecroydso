@@ -44,5 +44,5 @@ from GitHub_::
 .. _PyPI: https://pypi.python.org/pypi/PyVISA
 .. _GitHub: https://github.com/lecroydso/lecroydso
 .. _`National Instruments's VISA`: https://www.ni.com/en-us/support/downloads/drivers/download.ni-visa.html
-.. _`Keysight IO Library SUite`: https://www.keysight.com/en/pd-1985909/io-libraries-suite/
+.. _`Keysight IO Library Suite`: https://www.keysight.com/en/pd-1985909/io-libraries-suite/
 .. _`issue tracker`: https://github.com/lecroydso/lecroydso/issues
