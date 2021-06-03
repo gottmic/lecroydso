@@ -16,7 +16,6 @@ import sys
 
 if sys.version_info >= (3, 8):
     from importlib.metadata import version as get_version
-    from pkg_resources import get_distribution
 else:
     from importlib_metadata import version as get_version
 
@@ -62,7 +61,7 @@ author = "LeCroyDSO Authors"
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-release = get_distribution(project).version
+release = get_version(project)
 version = '.'.join(release.split('.')[:2])
 this_year = datetime.date.today().year
 copyright = "%s, %s" % (this_year, author)
