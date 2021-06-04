@@ -15,7 +15,8 @@ measurement suite.
 Who makes *LeCroyDSO*?
 ----------------------
 
-LeCroyDSO was originally programmed by Ashok Bruno and Anirudh Surekha.
+LeCroyDSO was originally programmed by several LeCroy engineers and 
+repackaged by Ashok Bruno and Anirudh Surekha.
 
 Take a look at AUTHORS_ for more information
 

@@ -34,7 +34,7 @@ Using the development version
 You can install the latest development version (at your own risk) directly
 from GitHub_::
 
-    $ pip install -U git+https://github.com/lecroydso/lecroydso.git
+    $ pip install -U git+https://github.com/TeledyneLeCroy/lecroydso.git
 
 .. _`PyVISA`: http://pyvisa.readthedocs.io/en/latest/
 .. _easy_install: http://pypi.python.org/pypi/setuptools

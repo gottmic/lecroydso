@@ -14,7 +14,7 @@ import time
 maxLen = 1e6
 
 class ActiveDSO(DSOConnection):
-    def __init__( self, connection_string:str, query_response_max_length:int=maxLen ):
+    def __init__(self, connection_string:str, query_response_max_length:int=maxLen):
         """Makes a connection to the instrument using ActiveDSO
 
         Args:
@@ -39,6 +39,7 @@ class ActiveDSO(DSOConnection):
             self.connected = True
             self.connection_string = connection_string
             self._query_response_max_length = query_response_max_length
+            self._insert_wait_opc = False
         else:
             self.connected = False
             raise DSOConnectionError('ActiveDSO connection failed'.format(connection_string))
@@ -66,6 +67,9 @@ class ActiveDSO(DSOConnection):
     
     @property
     def query_response_max_length(self):
+        """Maximum length for a response in a query.
+        Can be set to an integer value
+        """
         return self._query_response_max_length
 
     @query_response_max_length.setter
@@ -78,6 +82,22 @@ class ActiveDSO(DSOConnection):
             raise ValueError("Timeout can't be negative")
         self._timeout = timeout
         self.aDSO.SetTimeout(timeout)
+
+    @property
+    def insert_wait_opc(self):
+        return self._insert_wait_opc
+
+    @insert_wait_opc.setter
+    def insert_wait_opc(self, val:bool):
+        """Inserts a OPC command for reads and writes.
+        This ensures that the command will execute sequentially.
+        The default value for a connection is false.
+        NOTE: There is a performance impact by setting this flag
+
+        Args:
+            val (bool): True to insert wait_opc, False otherwise. 
+        """
+        self._insert_wait_opc = val
 
     def reconnect(self):
         """Reconnects to the instrument with the existing credentials
@@ -97,6 +117,8 @@ class ActiveDSO(DSOConnection):
             terminator (bool, optional): description. Defaults to True.
         """
         self.aDSO.WriteString(message, terminator)
+        if self._insert_wait_opc:
+            self.wait_opc()
 
     def read(self, max_bytes:int) -> str:
         """reads string from the instrument
@@ -123,6 +145,8 @@ class ActiveDSO(DSOConnection):
             if query_delay is not None:
                 time.sleep(query_delay)
             response = self.aDSO.ReadString(self._query_response_max_length)
+            if self._insert_wait_opc:
+                self.wait_opc()
         else:
             raise DSOIOError('Write to device failed')
 
@@ -135,6 +159,8 @@ class ActiveDSO(DSOConnection):
             message (string): command string
         """
         self.aDSO.WriteString('vbs \'' + message + '\'', True)
+        if self._insert_wait_opc:
+            self.wait_opc()
 
     def query_vbs(self, message:str, query_delay:float=None) -> str:
         """formats the query as a VBS string response
@@ -149,6 +175,8 @@ class ActiveDSO(DSOConnection):
             if query_delay is not None:
                 time.sleep(query_delay)
             response = self.aDSO.ReadString(self._query_response_max_length)
+            if self._insert_wait_opc:
+                self.wait_opc()
         else:
             raise DSOIOError('Write to device failed')
         return response

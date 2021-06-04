@@ -62,6 +62,7 @@ class LeCroyVISA(DSOConnection):
             self._query_response_max_length = query_response_max_length
             self._error_string = ''
             self._error_flag = ''
+            self._insert_wait_opc = False
         except:
             raise DSOConnectionError("Unable to make a LeCroyVISA connection")
 
@@ -91,6 +92,22 @@ class LeCroyVISA(DSOConnection):
         self._timeout = timeout
         self._visa.timeout = int(timeout * 1000)
 
+    @property
+    def insert_wait_opc(self):
+        return self._insert_wait_opc
+
+    @insert_wait_opc.setter
+    def insert_wait_opc(self, val:bool):
+        """Inserts a OPC command for reads and writes.
+        This ensures that the command will execute sequentially.
+        The default value for a connection is false.
+        NOTE: There is a performance impact by setting this flag
+
+        Args:
+            val (bool): True to insert wait_opc, False otherwise. 
+        """
+        self._insert_wait_opc = val
+
     def reconnect(self):
         """Reconnects to the instrument with the existing credentials
         """
@@ -107,6 +124,8 @@ class LeCroyVISA(DSOConnection):
         written = self._visa.write(message)
         self._error_flag = written != (len(message) + 1)
         self._error_string = ''
+        if self._insert_wait_opc:
+            self.wait_opc()
 
     def query(self, message:str, query_delay:float=None) -> str:
         """Send the query and returns the response
@@ -122,6 +141,8 @@ class LeCroyVISA(DSOConnection):
             if query_delay is not None:
                 time.sleep(query_delay)
             response = self._visa.read()
+            if self._insert_wait_opc:
+                self.wait_opc()
         else:
             self._error_flag = True
             self._error_string = 'Write to device Failed'
@@ -138,6 +159,8 @@ class LeCroyVISA(DSOConnection):
             message (str): command string
         """
         self.write('vbs \'' + message + '\'')
+        if self._insert_wait_opc:
+            self.wait_opc()
 
     def query_vbs(self, message:str, query_delay:float=None) -> str:
         """Formats the query as a VBS string response

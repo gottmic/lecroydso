@@ -37,8 +37,9 @@ class LeCroyDSO:
             if log:
                 self.__createLogger(self._conn.connection_string)
 
-            self.__init_vbs()
-            
+            self._insert_wait_opc = False
+            self.init_vbs()
+
             #determine what model this scope is
             (self.manufacturer, self.model, self.serial_number, self.firmware_version) = self.query('*IDN?').split(',')
             
@@ -106,16 +107,15 @@ class LeCroyDSO:
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
 
-    def __init_vbs(self):
-        # define some 'standard' variables in scope's VBS context, so commands
-        # are simpler and more efficient
+    def init_vbs(self):
+        """Define some 'standard' variables in scope's VBS context, so commands
+        are simpler and more efficient.
+        After this function is called you can 
+        """
         self.write_vbs('set acq = app.Acquisition')
         self.write_vbs('set acqHorz = acq.Horizontal')
-        self.write_vbs('set acqTrig = acq.Trigger')
         self.write_vbs('set chans = acq.channels')
-        self.write_vbs('set sysCtrl = app.SystemControl')
         self.write_vbs('set meas = app.Measure')
-        self.write_vbs('set p1 = meas.p1')
         self.write_vbs('set math = app.Math')
         self.write_vbs('set zoom = app.Zoom')
         self.write_vbs('set memory = app.Memory')
@@ -282,6 +282,24 @@ class LeCroyDSO:
         self._conn.query_response_max_length = val
 
     @property
+    def insert_wait_opc(self):
+        self._insert_wait_opc = self._conn.insert_wait_opc
+        return self._insert_wait_opc
+
+    @insert_wait_opc.setter
+    def insert_wait_opc(self, val:bool):
+        """Inserts a OPC command for reads and writes.
+        This ensures that the command will execute sequentially.
+        The default value for a connection is false.
+        NOTE: There is a performance impact by setting this flag
+
+        Args:
+            val (bool): True to insert wait_opc, False otherwise. 
+        """        
+        self._insert_wait_opc = val
+        self._conn.insert_wait_opc = val
+
+    @property
     def hor_scale(self) -> float:
         """Reads the horizontal scale from the dso
         """ 
@@ -333,7 +351,7 @@ class LeCroyDSO:
     def triggerType(self) -> str:
         """Reads the trigger type of the dso
         """
-        self.get_string_value('acqTrig.Type')
+        self.get_string_value('acq.Trigger.Type')
 
     @triggerType.setter
     def triggerType(self, val:str):
@@ -345,7 +363,7 @@ class LeCroyDSO:
     def trigger_source(self) -> str:
         """Reads the trigger source of the dso
         """
-        return self.get_string_value('acqTrig.Source')
+        return self.get_string_value('acq.Trigger.Source')
 
     @trigger_source.setter
     def trigger_source(self, val:str):
@@ -357,7 +375,7 @@ class LeCroyDSO:
     def trigger_coupling(self) -> str:
         """Reads the trigger coupling of the dso
         """
-        self.get_string_value('acqTrig.Coupling')
+        self.get_string_value('acq.Trigger.Coupling')
 
     @trigger_coupling.setter
     def trigger_coupling(self, val:str):
@@ -589,7 +607,7 @@ class LeCroyDSO:
             ParametersError: if the source is not valid
         """
         if (source.upper() in ['EXT', 'LINE'] or self.validate_source(source)):
-            self.write_vbs('acqTrig.source = "' + source.upper() + '"')
+            self.write_vbs('acq.Trigger.source = "' + source.upper() + '"')
         else:
             raise ParametersError('source not found')
 
@@ -623,7 +641,7 @@ class LeCroyDSO:
         Returns:
             str: Trigger type value
         """
-        type = self.query_vbs('acqTrig.Type')
+        type = self.query_vbs('acq.Trigger.Type')
         return type.upper()
 
     def set_trigger_coupling(self, channel:str, coupling:str):
@@ -637,7 +655,7 @@ class LeCroyDSO:
             ParametersError: Invalid channel or coupling
         """
         if ((channel.upper() in self.available_channels) and (coupling.upper() in ('DC', 'AC', 'LFREJ', 'HFREJ'))):
-            self.write_vbs('acqTrig.' + channel.upper() + 'Coupling = "' + coupling.upper() + '"')
+            self.write_vbs('acq.Trigger.' + channel.upper() + 'Coupling = "' + coupling.upper() + '"')
         else:
             raise ParametersError('Trigger Coupling not valid')
 
@@ -648,7 +666,7 @@ class LeCroyDSO:
             type (str): possible values ['OFF', 'TIME', 'EVENTS']
         """
         if type.upper() in ['OFF', 'TIME', 'EVENTS']:
-            self.write_vbs('acqTrig.HoldoffType = "' + type.upper() + '"')
+            self.write_vbs('acq.Trigger.HoldoffType = "' + type.upper() + '"')
 
     def set_holdoff_events(self, numEvents:int = 1):
         """Set Trigger Holdoff events
@@ -657,7 +675,7 @@ class LeCroyDSO:
             numEvents (int, optional): Sets the number of holdoff events. Defaults to 1.
         """
         if 1 <= numEvents <= 1000000000:
-            self.write_vbs('acqTrig.HoldoffEvents = ' + str(numEvents))
+            self.write_vbs('acq.Trigger.HoldoffEvents = ' + str(numEvents))
 
     def set_average_sweeps(self, channel:str, sweeps:int = 1):
         """Set the Average number of sweeps for a channel
@@ -690,7 +708,7 @@ class LeCroyDSO:
             ParametersError: on invalid Channel source
         """
         if (source.upper() in ('EXT') or source.upper() in self.available_channels):
-            self.write_vbs('acqTrig.' + source.upper() + 'Level = ' + str(level))
+            self.write_vbs('acq.Trigger.' + source.upper() + 'Level = ' + str(level))
         elif (source.upper() in self.available_digital_channels):
             group = int(source.upper().replace('D', '')) / 9
             self.write_vbs('app.LogicAnalyzer.MSxxLogicFamily' + str(group) + ' = "UserDefined"')
@@ -725,7 +743,7 @@ class LeCroyDSO:
             ParametersError: on invalid Trigger Type
         """
         if type.upper() in ['EDGE', 'WIDTH', 'QUALIFIED', 'WINDOW', 'INTERNAL', 'TV', 'PATTERN']:
-            self.write_vbs('acqTrig.type = ' + type.upper())
+            self.write_vbs('acq.Trigger.type = ' + type.upper())
         else:
             raise ParametersError('source not found')
 
@@ -741,9 +759,9 @@ class LeCroyDSO:
         """
         if (slope.upper() in ['POSITIVE', 'NEGATIVE', 'EITHER']):
             if (channel.upper() in self.available_channels):
-                self.write_vbs('acqTrig.' + channel.upper() + '.slope = "' + slope.upper() + '"')
+                self.write_vbs('acq.Trigger.' + channel.upper() + '.slope = "' + slope.upper() + '"')
             elif channel.uppper in ['EXT', 'LINE']:
-                self.write_vbs('acqTrig.' + channel.upper() + '.slope = "' + slope.upper() + '"')
+                self.write_vbs('acq.Trigger.' + channel.upper() + '.slope = "' + slope.upper() + '"')
             else:
                 raise ParametersError('source not found')
         else:

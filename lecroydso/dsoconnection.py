@@ -27,6 +27,10 @@ class DSOConnection:
     def query_response_max_length(self):
         pass
 
+    @property
+    def insert_wait_opc(self):
+        pass
+
     def reconnect(self):
         pass
             
