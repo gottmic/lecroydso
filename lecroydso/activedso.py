@@ -1,9 +1,9 @@
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Summary:		Implementation of ActiveDSO class
 # Authors:		Ashok Bruno
 # Started:		2/8/2021
 # Copyright 2021-2024 Teledyne LeCroy Corporation. All Rights Reserved.
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #
 
 
@@ -13,8 +13,9 @@ import time
 
 maxLen = 1e6
 
+
 class ActiveDSO(DSOConnection):
-    def __init__(self, connection_string:str, query_response_max_length:int=maxLen):
+    def __init__(self, connection_string: str, query_response_max_length: int = maxLen):
         """Makes a connection to the instrument using ActiveDSO
 
         Args:
@@ -27,7 +28,7 @@ class ActiveDSO(DSOConnection):
             from win32com.client import DispatchEx
             self.aDSO = DispatchEx('LeCroy.ActiveDSOCtrl.1')
 
-        except:
+        except:     # noqa
             self.connected = False
             raise DSOConnectionError('ActiveDSO not installed or registered')
             return
@@ -42,12 +43,12 @@ class ActiveDSO(DSOConnection):
             self._insert_wait_opc = False
         else:
             self.connected = False
-            raise DSOConnectionError('ActiveDSO connection failed'.format(connection_string))
+            raise DSOConnectionError('ActiveDSO connection failed, {}'.format(connection_string))
             return
 
     def __del__(self):
         self.disconnect()
-    
+
     @property
     def error_string(self):
         """Contains the error message when the error_flag is True"""
@@ -59,12 +60,12 @@ class ActiveDSO(DSOConnection):
         """Set to True when an error occurs"""
         self._error_flag = self.aDSO.errorFlag
         return self._error_flag
-   
-    @property 
+
+    @property
     def timeout(self) -> float:
         """timeout value in seconds in float"""
         return self._timeout
-    
+
     @property
     def query_response_max_length(self):
         """Maximum length for a response in a query.
@@ -73,11 +74,11 @@ class ActiveDSO(DSOConnection):
         return self._query_response_max_length
 
     @query_response_max_length.setter
-    def query_response_max_length(self, val:int):
+    def query_response_max_length(self, val: int):
         self._query_respose_max_length = val
 
     @timeout.setter
-    def timeout(self, timeout:float):
+    def timeout(self, timeout: float):
         if timeout < 0.0:
             raise ValueError("Timeout can't be negative")
         self._timeout = timeout
@@ -88,14 +89,14 @@ class ActiveDSO(DSOConnection):
         return self._insert_wait_opc
 
     @insert_wait_opc.setter
-    def insert_wait_opc(self, val:bool):
+    def insert_wait_opc(self, val: bool):
         """Inserts a OPC command for reads and writes.
         This ensures that the command will execute sequentially.
         The default value for a connection is false.
         NOTE: There is a performance impact by setting this flag
 
         Args:
-            val (bool): True to insert wait_opc, False otherwise. 
+            val (bool): True to insert wait_opc, False otherwise.
         """
         self._insert_wait_opc = val
 
@@ -108,8 +109,8 @@ class ActiveDSO(DSOConnection):
             self.connected = False
             raise DSOConnectionError('ActiveDSO connection failed')
             return
-            
-    def write(self, message:str, terminator:bool=True):
+
+    def write(self, message: str, terminator: bool = True):
         """sends a strings to the DSO with or without a terminating character
 
         Args:
@@ -120,7 +121,7 @@ class ActiveDSO(DSOConnection):
         if self._insert_wait_opc:
             self.wait_opc()
 
-    def read(self, max_bytes:int) -> str:
+    def read(self, max_bytes: int) -> str:
         """reads string from the instrument
 
         Args:
@@ -131,7 +132,7 @@ class ActiveDSO(DSOConnection):
         """
         return self.aDSO.ReadString(max_bytes)
 
-    def query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message: str, query_delay: float = None) -> str:
         """Send the query and returns the response
 
         Args:
@@ -152,7 +153,7 @@ class ActiveDSO(DSOConnection):
 
         return response
 
-    def write_vbs(self, message:str):
+    def write_vbs(self, message: str):
         """sends the command as a vbs formatted comamnd
 
         Args:
@@ -162,14 +163,14 @@ class ActiveDSO(DSOConnection):
         if self._insert_wait_opc:
             self.wait_opc()
 
-    def query_vbs(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message: str, query_delay: float = None) -> str:
         """formats the query as a VBS string response
 
         Args:
             message (string): query string
 
         Returns:
-            string: 
+            string:
         """
         if self.aDSO.WriteString('vbs? \'Return = ' + message + '\'', True):
             if query_delay is not None:
@@ -189,7 +190,7 @@ class ActiveDSO(DSOConnection):
         """
         return self.aDSO.WaitForOPC()
 
-    def write_raw(self, message:bytes, terminator:bool=True) -> bool:
+    def write_raw(self, message: bytes, terminator: bool = True) -> bool:
         """write binary data to the instrument
 
         Args:
@@ -201,7 +202,7 @@ class ActiveDSO(DSOConnection):
         """
         return self.aDSO.WriteBinary(message, len(message), terminator)
 
-    def read_raw(self, max_bytes:int) -> memoryview:
+    def read_raw(self, max_bytes: int) -> memoryview:
         """reads a binary response from the instrument
 
         Args:
@@ -266,7 +267,7 @@ class ActiveDSO(DSOConnection):
         response = self.aDSO.TransferFileToPC(remote_device, remote_filename, local_filename)
         return response >= 0.0
 
-    def store_hardcopy_to_file(self, format:str, aux_format:str, filename:str):
+    def store_hardcopy_to_file(self, format: str, aux_format: str, filename: str):
         """Transfers a hardcopy image from the isntrument and stores it on the PC
 
         Args:

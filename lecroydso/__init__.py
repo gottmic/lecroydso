@@ -26,11 +26,11 @@ if sys.version_info >= (3, 8):
 else:
     from importlib_metadata import PackageNotFoundError, version  # type: ignore
 
-from lecroydso.dsoconnection import DSOConnection
-from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError
-from lecroydso.activedso import ActiveDSO
-from lecroydso.lecroyvisa import LeCroyVISA
-from lecroydso.lecroydso import LeCroyDSO
+from lecroydso.dsoconnection import DSOConnection   # noqa
+from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError    # noqa
+from lecroydso.activedso import ActiveDSO       # noqa
+from lecroydso.lecroyvisa import LeCroyVISA     # noqa
+from lecroydso.lecroydso import LeCroyDSO       # noqa
 
 
 __version__ = "unknown"

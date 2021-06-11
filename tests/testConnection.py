@@ -2,10 +2,11 @@ import tempfile
 from lecroydso.dsoconnection import DSOConnection
 import os
 
+
 class TestConnection():
     def __init__(self):
         self.my_conn: DSOConnection
- 
+
     def test_basic_commands(self):
         self.my_conn.write('CHDR OFF')
         print(self.my_conn.error_string)
@@ -29,7 +30,6 @@ class TestConnection():
         self.assertEqual(self.my_conn.timeout, cur_timeout)
 
         # test write_binary and read_binary functions
-
 
     def panel_functions(self):
         setup = self.my_conn.get_panel()

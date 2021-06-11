@@ -15,6 +15,7 @@ class DSOConnectionError(Exception):
         else:
             return 'DSOConnectionError Exception'
 
+
 class DSOIOError(Exception):
     """DSO IO Error indicates an issue with connection
     """
@@ -29,6 +30,7 @@ class DSOIOError(Exception):
             return 'DSOIOError, {0} '.format(self.message)
         else:
             return 'DSOIOError Exception'
+
 
 class ParametersError(Exception):
     """ParametersError indicates an error with supplied parameters"""

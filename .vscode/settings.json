@@ -1,0 +1,17 @@
+{
+    "python.testing.pytestEnabled": true,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.unittestEnabled": false,
+    "python.pythonPath": "venv\\Scripts\\python.exe",
+    "restructuredtext.confPath": "${workspaceFolder}\\docs\\source",
+    "restructuredtext.builtDocumentationPath" : "${workspaceRoot}\\docs\\build\\html",
+    "restructuredtext.updateOnTextChanged"    : "true",
+    "restructuredtext.updateDelay"            : 300,
+    "restructuredtext.sphinxBuildPath": "${workspaceRoot}\\docs\\make",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.linting.pycodestyleEnabled": false,
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+}

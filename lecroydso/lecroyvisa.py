@@ -1,9 +1,9 @@
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Summary:		Implementation of LeCroyVISA class
 # Authors:		Ashok Bruno
 # Started:		02/10/2021
 # Copyright 2021-2024 Teldyne LeCroy Corporation. All Rights Reserved.
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #
 
 from pyvisa.resources.resource import Resource
@@ -14,10 +14,11 @@ from lecroydso import DSOConnection
 
 maxLen = 1e6
 
+
 class LeCroyVISA(DSOConnection):
     _visa: Resource
 
-    def __init__( self, connection_string:str, query_response_max_length:int=maxLen ):
+    def __init__(self, connection_string: str, query_response_max_length: int = maxLen):
         """Makes a connection to the instrument using ActiveDSO
 
         Args:
@@ -27,7 +28,7 @@ class LeCroyVISA(DSOConnection):
         self.connection_string = None
         self._visa = None
         self.connected = False
-        
+
         rm = pyvisa.ResourceManager()
         resources = rm.list_resources()
         if connection_string not in resources:
@@ -54,7 +55,7 @@ class LeCroyVISA(DSOConnection):
             if 'WARNING' in chdr:
                 scope.connected = False
                 scope.close()
-                return 
+                return
 
             self._visa = scope
             self.connection_string = connection_string
@@ -63,7 +64,7 @@ class LeCroyVISA(DSOConnection):
             self._error_string = ''
             self._error_flag = ''
             self._insert_wait_opc = False
-        except:
+        except:     # noqa
             raise DSOConnectionError("Unable to make a LeCroyVISA connection")
 
     def __del__(self):
@@ -76,13 +77,13 @@ class LeCroyVISA(DSOConnection):
     @property
     def error_flag(self):
         return self._error_flag
-  
-    @property 
+
+    @property
     def timeout(self):
         return float(self._visa.timeout) / 1000.0
 
     @timeout.setter
-    def timeout(self, timeout:float):
+    def timeout(self, timeout: float):
         """sets the timeout value used by the connection
 
         Args:
@@ -97,14 +98,14 @@ class LeCroyVISA(DSOConnection):
         return self._insert_wait_opc
 
     @insert_wait_opc.setter
-    def insert_wait_opc(self, val:bool):
+    def insert_wait_opc(self, val: bool):
         """Inserts a OPC command for reads and writes.
         This ensures that the command will execute sequentially.
         The default value for a connection is false.
         NOTE: There is a performance impact by setting this flag
 
         Args:
-            val (bool): True to insert wait_opc, False otherwise. 
+            val (bool): True to insert wait_opc, False otherwise.
         """
         self._insert_wait_opc = val
 
@@ -114,20 +115,20 @@ class LeCroyVISA(DSOConnection):
         if self.connected:
             self._visa.close()
         self.__init__(self.connection_string)
-            
-    def write(self, message:str):
-        """Sends the command 
+
+    def write(self, message: str):
+        """Sends the command
 
         Args:
             message (str): command string
-        """        
+        """
         written = self._visa.write(message)
         self._error_flag = written != (len(message) + 1)
         self._error_string = ''
         if self._insert_wait_opc:
             self.wait_opc()
 
-    def query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message: str, query_delay: float = None) -> str:
         """Send the query and returns the response
 
         Args:
@@ -152,7 +153,7 @@ class LeCroyVISA(DSOConnection):
         self._error_string = ''
         return response
 
-    def write_vbs(self, message:str):
+    def write_vbs(self, message: str):
         """Sends the command as a vbs formatted comamnd
 
         Args:
@@ -162,7 +163,7 @@ class LeCroyVISA(DSOConnection):
         if self._insert_wait_opc:
             self.wait_opc()
 
-    def query_vbs(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message: str, query_delay: float = None) -> str:
         """Formats the query as a VBS string response
 
         Args:
@@ -189,7 +190,7 @@ class LeCroyVISA(DSOConnection):
             self._visa.close()
         self.connected = False
 
-    def write_raw(self, message:bytes, terminator:bool=True) -> bool:
+    def write_raw(self, message: bytes, terminator: bool = True) -> bool:
         """Write binary data to the instrument
 
         Args:
@@ -203,7 +204,7 @@ class LeCroyVISA(DSOConnection):
         if terminator:
             self._visa.write_termination()
 
-    def read_raw(self, max_bytes:int) -> memoryview:
+    def read_raw(self, max_bytes: int) -> memoryview:
         """Reads a binary response from the instrument
 
         Args:
@@ -245,9 +246,8 @@ class LeCroyVISA(DSOConnection):
         Returns:
             bool: True on success, False on failure
         """
-        written = self._visa.write_binary_values('PNSU ', (panel + 'ffffffff').encode('utf-8'), datatype = 'b')
+        written = self._visa.write_binary_values('PNSU ', (panel + 'ffffffff').encode('utf-8'), datatype='b')
         return written >= len(panel)
-
 
     def transfer_file_to_dso(self, remote_device: str, remote_filename: str, local_filename: str) -> bool:
         """Transfers a file from the PC to the remote device
@@ -308,7 +308,7 @@ class LeCroyVISA(DSOConnection):
 
         return True
 
-    def store_hardcopy_to_file(self, format:str, aux_format:str, filename:str):
+    def store_hardcopy_to_file(self, format: str, aux_format: str, filename: str):
         """Transfers a hardcopy image from the isntrument and stores it on the PC
 
         Args:

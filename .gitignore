@@ -17,7 +17,6 @@ MANIFEST
 venv/
 examples/venv/
 
-.vscode
 htmlcov/
 .mypy_cache/
 pip-wheel-metadata/

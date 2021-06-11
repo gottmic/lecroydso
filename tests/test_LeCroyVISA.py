@@ -6,8 +6,9 @@ from tests.testConnection import TestConnection
 # requires a scope application running on the local host with Remote as LXI
 connection_string = 'TCPIP0::127.0.0.1::inst0::INSTR'
 
+
 class TestLeCroyVISA(unittest.TestCase, TestConnection):
-    
+
     def setUp(self):
         try:
             self.my_conn = LeCroyVISA(connection_string)     # replace with IP address of the scope
@@ -29,6 +30,6 @@ class TestLeCroyVISA(unittest.TestCase, TestConnection):
         except DSOConnectionError as err:
             self.assertEqual(err.message, "Unable to connect to resource")     # this should most likely fail
 
-        
+
 if __name__ == '__main__':
     unittest.main()

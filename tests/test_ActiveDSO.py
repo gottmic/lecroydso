@@ -2,13 +2,13 @@ from lecroydso.errors import DSOConnectionError
 import unittest
 from lecroydso.activedso import ActiveDSO
 from tests.testConnection import TestConnection
-import os
 
 # requires a scope application running on the local host set to LXI
 connection_string = 'VXI11:127.0.0.1'
 
+
 class TestActiveDSO(unittest.TestCase, TestConnection):
-    
+
     def setUp(self):
         try:
             self.my_conn = ActiveDSO(connection_string)     # replace with IP address of the scope
@@ -30,10 +30,4 @@ class TestActiveDSO(unittest.TestCase, TestConnection):
             if my_conn is not None:
                 my_conn.disconnect()
         except DSOConnectionError as err:
-            self.assertEqual(err.message, "ActiveDSO connection failed")     # this should most likely fail
-
-
-
-if __name__ == '__main__':
-    if os.name == 'nt':
-        unittest.main()
+            self.assertTrue('ActiveDSO connection failed' in err.message)

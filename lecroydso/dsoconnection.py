@@ -1,16 +1,18 @@
-#-----------------------------------------------------------------------------
-# Summary:		Implementation of ActiveDSO class
+# -----------------------------------------------------------------------------
+# Summary:		Implementation of DSOConnection class
 # Authors:		Ashok Bruno
 # Started:		2/8/2021
 # Copyright 2021-2024 Teledyne LeCroy Corporation. All Rights Reserved.
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #
 
 
 maxLen = 1e6
 
-#Interface
+
 class DSOConnection:
+    """Interface for DSOConnection types. This can be passed into a LeCroyDSO object
+    """
     @property
     def error_string(self):
         pass
@@ -19,7 +21,7 @@ class DSOConnection:
     def error_flag(self):
         pass
 
-    @property 
+    @property
     def timeout(self):
         pass
 
@@ -33,29 +35,29 @@ class DSOConnection:
 
     def reconnect(self):
         pass
-            
-    def write(self, message:str, terminator:bool=True):
+
+    def write(self, message: str, terminator: bool = True):
         pass
 
-    def read(self, max_bytes:int) -> str:
+    def read(self, max_bytes: int) -> str:
         pass
 
-    def query(self, message:str, query_delay:float=None) -> str:
+    def query(self, message: str, query_delay: float = None) -> str:
         pass
 
-    def write_vbs(self, message:str):
+    def write_vbs(self, message: str):
         pass
 
-    def query_vbs(self, message:str, query_delay:float=None) -> str:
+    def query_vbs(self, message: str, query_delay: float = None) -> str:
         pass
 
     def wait_opc(self) -> bool:
         pass
 
-    def write_raw(self, message:bytes, terminator:bool=True) -> bool:
+    def write_raw(self, message: bytes, terminator: bool = True) -> bool:
         pass
 
-    def read_raw(self, max_bytes:int) -> memoryview:
+    def read_raw(self, max_bytes: int) -> memoryview:
         pass
 
     def disconnect(self):
@@ -73,5 +75,5 @@ class DSOConnection:
     def transfer_file_to_pc(self, remote_device: str, remote_filename: str, local_filename: str) -> bool:
         pass
 
-    def store_hardcopy_to_file(self, format:str, auxFormat:str, filename:str):
+    def store_hardcopy_to_file(self, format: str, auxFormat: str, filename: str):
         pass
