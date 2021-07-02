@@ -32,7 +32,7 @@ class LeCroyVISA(DSOConnection):
         rm = pyvisa.ResourceManager()
         resources = rm.list_resources()
         if connection_string not in resources:
-            raise DSOConnectionError("Unable to connect to resource")
+            raise DSOConnectionError('LeCroyVISA connection failed, {}'.format(connection_string))
             self.connected = False
             return
         try:
@@ -181,7 +181,7 @@ class LeCroyVISA(DSOConnection):
         Returns:
             boolean: True on success, False on failure
         """
-        return self._visa.send_query('*OPC?')
+        return self._visa.query('*OPC?')
 
     def disconnect(self):
         """Disconnects the connection
@@ -213,7 +213,7 @@ class LeCroyVISA(DSOConnection):
         Returns:
             memoryview: returns the data as memoryview
         """
-        return memoryview(self.read_bytes(max_bytes, break_on_termchar=True))
+        return memoryview(self._visa.read_bytes(max_bytes, break_on_termchar=True))
 
     def get_panel(self) -> str:
         """Reads the instrument control state into a string

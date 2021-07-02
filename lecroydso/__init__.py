@@ -31,7 +31,7 @@ from lecroydso.errors import DSOConnectionError, DSOIOError, ParametersError    
 from lecroydso.activedso import ActiveDSO       # noqa
 from lecroydso.lecroyvisa import LeCroyVISA     # noqa
 from lecroydso.lecroydso import LeCroyDSO       # noqa
-
+from lecroydso.lecroyvicp import LeCroyVICP     # noqa
 
 __version__ = "unknown"
 try:
